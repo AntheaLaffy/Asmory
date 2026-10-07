@@ -1,0 +1,4 @@
+interface:
+  display_name: "Performance Gradient Optimization"
+  short_description: "General instrument-driven optimization method"
+  default_prompt: "Use $performance-gradient-optimization to define, measure, and iterate on this performance objective."
