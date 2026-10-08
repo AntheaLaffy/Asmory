@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import re
 from copy import deepcopy
 from dataclasses import dataclass
 from pathlib import Path
@@ -14,6 +15,64 @@ DETERMINISM_RANK = {
     "cross-machine": 2,
     "bit-exact": 3,
 }
+
+# Extension Facets use a dotted, lowercase namespace so that a package can
+# describe semantics the core vocabulary does not model yet without claiming
+# the name globally. Reverse-DNS style (org.example.audio) mirrors how the
+# ecosystem assigns unique names outside the Asmory core.
+EXTENSION_NAMESPACE_RE = re.compile(
+    r"[a-z0-9](?:[a-z0-9-]*[a-z0-9])?"
+    r"(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+"
+)
+
+_MISSING = object()
+
+
+class ExtensionFacetError(ValueError):
+    """A namespaced extension Facet document is malformed or conflicting."""
+
+
+def _extension_table(table: Any, where: str) -> dict[str, Any]:
+    """Validate one extensions table keyed by namespace."""
+    if not isinstance(table, dict):
+        raise ExtensionFacetError(f"{where} must be a table")
+
+    normalized: dict[str, Any] = {}
+    for namespace in sorted(table):
+        if (
+            not isinstance(namespace, str)
+            or EXTENSION_NAMESPACE_RE.fullmatch(namespace) is None
+        ):
+            raise ExtensionFacetError(
+                f"{where}: extension namespace must be a dotted lowercase "
+                f"name, got {namespace!r}"
+            )
+        facets = table[namespace]
+        if not isinstance(facets, dict) or not facets:
+            raise ExtensionFacetError(
+                f"{where}.{namespace} must be a non-empty table"
+            )
+        normalized[namespace] = facets
+    return normalized
+
+
+def _merge_extension_tables(
+    base: dict[str, Any],
+    overlay: dict[str, Any],
+    where: str,
+) -> dict[str, Any]:
+    """Merge two normalized extension tables, rejecting conflicting leaves."""
+    merged = {namespace: dict(facets) for namespace, facets in base.items()}
+    for namespace, facets in overlay.items():
+        target = merged.setdefault(namespace, {})
+        for key, value in facets.items():
+            if key in target and target[key] != value:
+                raise ExtensionFacetError(
+                    f"{where}: conflicting extension Facet "
+                    f"{namespace}.{key}"
+                )
+            target[key] = value
+    return merged
 
 
 def _normalize(value: Any) -> Any:
@@ -37,15 +96,72 @@ def canonical_semantics(doc: dict[str, Any]) -> dict[str, Any]:
             "requires": deepcopy(doc.get("requires", {})),
             "guarantees": deepcopy(doc.get("guarantees", {})),
         }
+        # Inline manifests may also declare the root shorthand directly. Only
+        # copy the key when present so extension-free documents keep their
+        # existing canonical form and fingerprint.
+        if "extensions" in doc:
+            sem["extensions"] = deepcopy(doc["extensions"])
         capability = doc["capability"]
+
+    if not isinstance(sem, dict):
+        raise ExtensionFacetError("semantic document must be a table")
+
+    requires = sem.get("requires") or {}
+    guarantees = sem.get("guarantees") or {}
+    if not isinstance(requires, dict) or not isinstance(guarantees, dict):
+        raise ExtensionFacetError(
+            "semantics requires/guarantees must be tables"
+        )
+
+    # `semantics.extensions` is progressive-disclosure shorthand for
+    # `semantics.guarantees.extensions`. Both forms canonicalize identically so
+    # the fingerprint never depends on which spelling a package chose.
+    root_extensions = sem.get("extensions")
+    guarantees_extensions = guarantees.get("extensions")
+
+    if root_extensions is not None:
+        root_table = _extension_table(
+            root_extensions, "semantics.extensions"
+        )
+        if guarantees_extensions is None:
+            guarantees = {**guarantees, "extensions": root_table}
+        else:
+            guarantees = {
+                **guarantees,
+                "extensions": _merge_extension_tables(
+                    _extension_table(
+                        guarantees_extensions,
+                        "semantics.guarantees.extensions",
+                    ),
+                    root_table,
+                    "semantics.extensions",
+                ),
+            }
+    elif guarantees_extensions is not None:
+        guarantees = {
+            **guarantees,
+            "extensions": _extension_table(
+                guarantees_extensions,
+                "semantics.guarantees.extensions",
+            ),
+        }
+
+    if requires.get("extensions") is not None:
+        requires = {
+            **requires,
+            "extensions": _extension_table(
+                requires["extensions"],
+                "semantics.requires.extensions",
+            ),
+        }
 
     return _normalize(
         {
             "schema": 1,
             "capability": capability,
             "interface": sem.get("interface", {}),
-            "requires": sem.get("requires", {}),
-            "guarantees": sem.get("guarantees", {}),
+            "requires": requires,
+            "guarantees": guarantees,
         }
     )
 
@@ -90,6 +206,30 @@ def _get(d: dict[str, Any], *path: str, default=None):
             return default
         cur = cur[key]
     return cur
+
+
+def _extension_leaves(table: Any, prefix: str = "") -> dict[str, Any]:
+    """Flatten nested extension Facet tables into dotted leaf paths."""
+    leaves: dict[str, Any] = {}
+    if not isinstance(table, dict):
+        return leaves
+    for key in sorted(table):
+        value = table[key]
+        path = f"{prefix}.{key}" if prefix else str(key)
+        if isinstance(value, dict):
+            leaves.update(_extension_leaves(value, path))
+        else:
+            leaves[path] = value
+    return leaves
+
+
+def flatten_extension_facets(table: Any) -> dict[str, Any]:
+    """Flatten one namespace's Facets into dotted leaf paths.
+
+    The registry facet index and the resolver's exact prefilter must agree on
+    this shape; expose it instead of reimplementing the walk.
+    """
+    return _extension_leaves(table)
 
 
 def match(consumer_doc: dict[str, Any], implementation_doc: dict[str, Any]) -> dict[str, Any]:
@@ -225,6 +365,55 @@ def match(consumer_doc: dict[str, Any], implementation_doc: dict[str, Any]) -> d
         provided.issubset(allowed),
         "Implementation side effects must be a subset of consumer-allowed effects.",
     )
+
+    # Namespaced extension Facets are matched exactly and directionally, the
+    # same way as `inputs_written`: an extension required by one side must be
+    # guaranteed verbatim by the other. An extension declared by only one side
+    # is not a constraint, so implementations stay free to diverge until a
+    # consumer actually requires the behavior.
+    def extension_requirements(owner: dict, root: str) -> dict[str, Any]:
+        table = _get(owner, root, "extensions", default={})
+        if not isinstance(table, dict):
+            return {}
+        result: dict[str, Any] = {}
+        for namespace in sorted(table):
+            facets = table[namespace]
+            if not isinstance(facets, dict):
+                continue
+            for path, value in _extension_leaves(facets).items():
+                result[f"{namespace}.{path}"] = value
+        return result
+
+    c_requires_ext = extension_requirements(c, "requires")
+    i_guarantees_ext = extension_requirements(i, "guarantees")
+
+    for key in sorted(c_requires_ext):
+        required_value = c_requires_ext[key]
+        provided_value = i_guarantees_ext.get(key, _MISSING)
+        add(
+            f"extensions.{key}",
+            "exact",
+            required_value,
+            None if provided_value is _MISSING else provided_value,
+            provided_value is not _MISSING and provided_value == required_value,
+            "A required extension Facet must be guaranteed exactly.",
+        )
+
+    i_requires_ext = extension_requirements(i, "requires")
+    c_guarantees_ext = extension_requirements(c, "guarantees")
+
+    for key in sorted(i_requires_ext):
+        required_value = i_requires_ext[key]
+        provided_value = c_guarantees_ext.get(key, _MISSING)
+        add(
+            f"extensions.{key}",
+            "exact",
+            required_value,
+            None if provided_value is _MISSING else provided_value,
+            provided_value is not _MISSING and provided_value == required_value,
+            "A caller must guarantee every extension Facet the implementation "
+            "requires.",
+        )
 
     return {
         "compatible": all(x.passed for x in checks),

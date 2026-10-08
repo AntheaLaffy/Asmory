@@ -193,9 +193,14 @@ grep -q '^name = "provider-a"$' asm.lock
 grep -q '^semantic_fingerprint = "e9ebbaacbc67435c191c1add57a31b88489f62d105054a461f6c8429bb1cba7b"$' asm.lock
 "$BIN" status | grep -q 'state       Exact'
 
-echo "== second independently published Provider joins same semantic island =="
+echo "== second independently published Provider adds a namespaced extension Facet =="
 cd "$publisher"
 "$BIN" fork simd-dot provider-b >/dev/null
+cat >>packages/provider-b/semantics.toml <<'TOML'
+
+[guarantees.extensions."org.example.audio"]
+denormal_policy = "flush"
+TOML
 git add asmory.workspace.toml packages/provider-b .asmory/.gitignore
 git commit -qm 'add provider-b'
 "$BIN" publish provider-b >/dev/null
@@ -214,10 +219,78 @@ ids=sorted(d["by_capability"]["math.dot.f32"])
 assert ids == ["provider-a@0.1.0","provider-b@0.1.0"]
 assert "provider-staged@0.1.0" not in d["providers"]
 
+# The extension guarantee gives provider-b its own semantic fingerprint while
+# the extension-free provider-a keeps the core fingerprint. Extension Facets
+# are part of semantic truth, not metadata.
 fp="e9ebbaacbc67435c191c1add57a31b88489f62d105054a461f6c8429bb1cba7b"
-assert sorted(d["by_fingerprint"][fp]) == ids
+assert sorted(d["by_fingerprint"][fp]) == ["provider-a@0.1.0"]
+assert d["providers"]["provider-b@0.1.0"]["semantic_fingerprint"] != fp
 assert sorted(d["by_facet"]['interface.shape="dot-f32-v1"']) == ids
+ext='guarantees.extensions.org.example.audio.denormal_policy="flush"'
+assert d["by_facet"][ext] == ["provider-b@0.1.0"]
 PY
+
+echo "== a required namespaced extension narrows discovery to its island =="
+cat >"$tmp/ext-profile.toml" <<'TOML'
+schema = 1
+
+[profile]
+id = "smoke/simd-dot-audio"
+version = "1.0.0"
+publisher = "Asmory"
+capability = "math.dot.f32"
+status = "experimental"
+
+[profile.lineage]
+derived_from = ["asmory/simd-dot-core@1.0.0"]
+supersedes = []
+
+[semantics.interface]
+shape = "dot-f32-v1"
+logical_export = "dot_f32"
+calling_convention = "sysv64"
+
+[semantics.requires.memory]
+alignment_min_bytes = 1
+inputs_readable = true
+
+[semantics.requires.extensions."org.example.audio"]
+denormal_policy = "flush"
+
+[semantics.guarantees.memory]
+inputs_written = false
+out_of_bounds_access = false
+
+[semantics.guarantees.numeric]
+mode = "tolerance"
+absolute_error_max = 0.000001
+relative_error_max = 0.00001
+bit_exact = false
+
+[semantics.guarantees.determinism]
+level = "same-machine"
+
+[semantics.guarantees.side_effects]
+allowed = []
+TOML
+
+consumer_ext="$tmp/consumer-ext"
+mkdir "$consumer_ext"
+cd "$consumer_ext"
+"$BIN" init >/dev/null
+
+# The exact Facet prefilter must exclude provider-a, which does not guarantee
+# the required extension, before directional matching ever runs.
+matched="$("$BIN" remote match-profile "$tmp/ext-profile.toml")"
+grep -q '^ACCEPT provider-b@0.1.0 semantic=compatible ' <<<"$matched"
+grep -q '^accepted: 1$' <<<"$matched"
+if grep -q 'provider-a' <<<"$matched"; then
+  echo "semantic-provider-smoke: extension prefilter leaked provider-a" >&2
+  exit 1
+fi
+
+"$BIN" remote add-profile "$tmp/ext-profile.toml" >/dev/null
+grep -q '^name = "provider-b"$' asm.lock
 
 echo "== semantic resolution refuses arbitrary winner without a ranking policy =="
 consumer2="$tmp/consumer-two"

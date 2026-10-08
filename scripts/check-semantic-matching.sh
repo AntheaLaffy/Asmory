@@ -8,7 +8,13 @@ import sys
 import tomllib
 
 sys.path.insert(0, str(Path("scripts").resolve()))
-from semantic_model import match
+from semantic_model import (
+    ExtensionFacetError,
+    canonical_semantics,
+    fingerprint,
+    flatten_extension_facets,
+    match,
+)
 
 impl = tomllib.loads(Path("examples/simd-dot/semantics.toml").read_text())
 core = tomllib.loads(Path("examples/simd-dot/profiles/core-v1.toml").read_text())
@@ -68,4 +74,97 @@ print("  minimum relation:            pass")
 print("  maximum relation:            pass")
 print("  subset relation:             pass")
 print("  semantic alternative reject: pass")
+
+# --- Namespaced extension Facets -------------------------------------------
+# Package-specific semantics live in namespaced extension Facets until the
+# core vocabulary earns a shared Facet. They are exact and directional, so
+# innovation stays free until a consumer actually requires the behavior.
+
+ext_guarantee = {"org.example.audio": {"denormal_policy": "flush"}}
+
+ext_impl = deepcopy(impl)
+ext_impl["guarantees"]["extensions"] = deepcopy(ext_guarantee)
+
+ext_consumer = deepcopy(core)
+ext_consumer["semantics"]["requires"]["extensions"] = deepcopy(ext_guarantee)
+
+# The root shorthand and the directional guarantee are the same semantics.
+root_form = deepcopy(ext_impl)
+del root_form["guarantees"]["extensions"]
+root_form["extensions"] = deepcopy(ext_guarantee)
+assert fingerprint(root_form) == fingerprint(ext_impl)
+assert canonical_semantics(root_form) == canonical_semantics(ext_impl)
+
+# A required extension must be guaranteed exactly.
+assert match(ext_consumer, ext_impl)["compatible"]
+
+wrong = deepcopy(ext_impl)
+wrong_audio = wrong["guarantees"]["extensions"]["org.example.audio"]
+wrong_audio["denormal_policy"] = "preserve"
+wrong_match = match(ext_consumer, wrong)
+assert not wrong_match["compatible"]
+assert "extensions.org.example.audio.denormal_policy" in {
+    x["path"] for x in wrong_match["rejections"]
+}
+
+missing = deepcopy(impl)
+missing_match = match(ext_consumer, missing)
+assert not missing_match["compatible"]
+assert "extensions.org.example.audio.denormal_policy" in {
+    x["path"] for x in missing_match["rejections"]
+}
+
+# A declared extension that no consumer requires does not constrain anything.
+assert match(core, wrong)["compatible"]
+
+# The reverse direction: caller guarantees what the implementation requires.
+impl_needs = deepcopy(impl)
+impl_needs["requires"]["extensions"] = deepcopy(ext_guarantee)
+consumer_provides = deepcopy(core)
+consumer_provides["semantics"]["guarantees"]["extensions"] = deepcopy(
+    ext_guarantee
+)
+assert match(consumer_provides, impl_needs)["compatible"]
+assert not match(core, impl_needs)["compatible"]
+
+# The resolver's exact prefilter must name the guarantee it needs.
+assert flatten_extension_facets(ext_guarantee["org.example.audio"]) == {
+    "denormal_policy": "flush"
+}
+
+# Malformed or ambiguous declarations fail closed.
+for label, broken in (
+    (
+        "invalid namespace",
+        {
+            "semantics": {
+                "capability": "math.dot.f32",
+                "extensions": {"Audio": {}},
+            }
+        },
+    ),
+    (
+        "conflicting declaration",
+        {
+            "semantics": {
+                "capability": "math.dot.f32",
+                "extensions": ext_guarantee,
+                "guarantees": {"extensions": {
+                    "org.example.audio": {"denormal_policy": "preserve"}
+                }},
+            }
+        },
+    ),
+):
+    try:
+        canonical_semantics(broken)
+    except ExtensionFacetError:
+        pass
+    else:
+        raise SystemExit(f"extension Facets: {label} was not rejected")
+
+print("extension Facet namespace:  pass")
+print("extension exact matching:   pass")
+print("extension free divergence:  pass")
+print("extension fail-closed:      pass")
 PY

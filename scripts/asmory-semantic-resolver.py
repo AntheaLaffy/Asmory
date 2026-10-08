@@ -17,7 +17,11 @@ from urllib.parse import quote, urlencode, urlsplit
 from machine_model import MachineError, compatible_variant, host_facts as native_host_facts
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from semantic_model import canonical_semantics, match  # noqa: E402
+from semantic_model import (
+    canonical_semantics,
+    flatten_extension_facets,
+    match,
+)  # noqa: E402
 
 CAPABILITY_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,255}")
 SHA_RE = re.compile(r"[0-9a-f]{64}")
@@ -232,25 +236,47 @@ def profile_document(path_text: str) -> tuple[Path, dict, dict]:
 
 
 def exact_prefilter_facets(canonical: dict) -> list[str]:
-    interface = canonical.get("interface", {})
-    if not isinstance(interface, dict):
-        return []
-
     facets = []
-    for key in (
-        "shape",
-        "logical_export",
-        "calling_convention",
-    ):
-        if key not in interface:
-            continue
-        value = json.dumps(
-            interface[key],
-            sort_keys=True,
-            separators=(",", ":"),
-            ensure_ascii=False,
-        )
-        facets.append(f"interface.{key}={value}")
+
+    interface = canonical.get("interface", {})
+    if isinstance(interface, dict):
+        for key in (
+            "shape",
+            "logical_export",
+            "calling_convention",
+        ):
+            if key not in interface:
+                continue
+            value = json.dumps(
+                interface[key],
+                sort_keys=True,
+                separators=(",", ":"),
+                ensure_ascii=False,
+            )
+            facets.append(f"interface.{key}={value}")
+
+    # A consumer's extension requirements must be guaranteed by a provider, so
+    # the prefilter asks for them under the `guarantees` root. This only ever
+    # narrows the candidate set; `match` still decides compatibility.
+    requires = canonical.get("requires", {})
+    extensions = (
+        requires.get("extensions")
+        if isinstance(requires, dict)
+        else None
+    )
+    if isinstance(extensions, dict):
+        for namespace in sorted(extensions):
+            leaves = flatten_extension_facets(extensions[namespace])
+            for path in sorted(leaves):
+                value = json.dumps(
+                    leaves[path],
+                    sort_keys=True,
+                    separators=(",", ":"),
+                    ensure_ascii=False,
+                )
+                facets.append(
+                    f"guarantees.extensions.{namespace}.{path}={value}"
+                )
 
     return facets
 

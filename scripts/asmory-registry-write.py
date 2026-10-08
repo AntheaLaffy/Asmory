@@ -24,6 +24,10 @@ SHA_RE = re.compile(r"[0-9a-f]{64}")
 OWNER_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,63}")
 CAPABILITY_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,255}")
 FACET_PATH_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,255}")
+EXTENSION_NAMESPACE_RE = re.compile(
+    r"[a-z0-9](?:[a-z0-9-]*[a-z0-9])?"
+    r"(?:\.[a-z0-9](?:[a-z0-9-]*[a-z0-9])?)+"
+)
 ID_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._+@/-]{0,255}")
 MAX_CANDIDATE = 1024 * 1024
 MAX_PROMOTION_REQUEST = 64 * 1024
@@ -57,6 +61,48 @@ def _normalize(value):
     return value
 
 
+class ExtensionFacetError(ValueError):
+    """A namespaced extension Facet document is malformed or conflicting."""
+
+
+def _extension_table(table, where: str):
+    if not isinstance(table, dict):
+        raise ExtensionFacetError(f"{where} must be a table")
+
+    normalized = {}
+    for namespace in sorted(table):
+        if not isinstance(namespace, str):
+            raise ExtensionFacetError(
+                f"{where}: extension namespace must be a string"
+            )
+        if EXTENSION_NAMESPACE_RE.fullmatch(namespace) is None:
+            raise ExtensionFacetError(
+                f"{where}: extension namespace must be a dotted lowercase "
+                f"name, got {namespace!r}"
+            )
+        facets = table[namespace]
+        if not isinstance(facets, dict) or not facets:
+            raise ExtensionFacetError(
+                f"{where}.{namespace} must be a non-empty table"
+            )
+        normalized[namespace] = facets
+    return normalized
+
+
+def _merge_extension_tables(base, overlay, where: str):
+    merged = {namespace: dict(facets) for namespace, facets in base.items()}
+    for namespace, facets in overlay.items():
+        target = merged.setdefault(namespace, {})
+        for key, value in facets.items():
+            if key in target and target[key] != value:
+                raise ExtensionFacetError(
+                    f"{where}: conflicting extension Facet "
+                    f"{namespace}.{key}"
+                )
+            target[key] = value
+    return merged
+
+
 def canonical_semantics(doc: dict) -> dict:
     if "semantics" in doc:
         sem = dict(doc["semantics"])
@@ -67,15 +113,69 @@ def canonical_semantics(doc: dict) -> dict:
             "requires": dict(doc.get("requires", {})),
             "guarantees": dict(doc.get("guarantees", {})),
         }
+        # Inline manifests may declare the root shorthand directly. Only copy
+        # the key when present so extension-free documents keep the same
+        # canonical form and fingerprint.
+        if "extensions" in doc:
+            sem["extensions"] = dict(doc["extensions"])
         capability = doc["capability"]
+
+    if not isinstance(sem, dict):
+        raise ExtensionFacetError("semantic document must be a table")
+
+    requires = sem.get("requires") or {}
+    guarantees = sem.get("guarantees") or {}
+    if not isinstance(requires, dict) or not isinstance(guarantees, dict):
+        raise ExtensionFacetError(
+            "semantics requires/guarantees must be tables"
+        )
+
+    # `semantics.extensions` is progressive-disclosure shorthand for
+    # `semantics.guarantees.extensions`; both forms canonicalize identically.
+    root_extensions = sem.get("extensions")
+    guarantees_extensions = guarantees.get("extensions")
+
+    if root_extensions is not None:
+        root_table = _extension_table(root_extensions, "semantics.extensions")
+        if guarantees_extensions is None:
+            guarantees = {**guarantees, "extensions": root_table}
+        else:
+            guarantees = {
+                **guarantees,
+                "extensions": _merge_extension_tables(
+                    _extension_table(
+                        guarantees_extensions,
+                        "semantics.guarantees.extensions",
+                    ),
+                    root_table,
+                    "semantics.extensions",
+                ),
+            }
+    elif guarantees_extensions is not None:
+        guarantees = {
+            **guarantees,
+            "extensions": _extension_table(
+                guarantees_extensions,
+                "semantics.guarantees.extensions",
+            ),
+        }
+
+    if requires.get("extensions") is not None:
+        requires = {
+            **requires,
+            "extensions": _extension_table(
+                requires["extensions"],
+                "semantics.requires.extensions",
+            ),
+        }
 
     return _normalize(
         {
             "schema": 1,
             "capability": capability,
             "interface": sem.get("interface", {}),
-            "requires": sem.get("requires", {}),
-            "guarantees": sem.get("guarantees", {}),
+            "requires": requires,
+            "guarantees": guarantees,
         }
     )
 
