@@ -60,7 +60,7 @@
     "docs/LOCAL_WORKSPACE_FOUNDATION.md": "file:-:43c4a2f274566b30f1701c9a33a692fa061c91c21a0f02be440331af62c5b5f2",
     "docs/PROMOTION_GATE_MVP.md": "file:-:268083d7d6d8526550c667c235a74ecff6d0eb6695e25b87610c42eba1bdde67",
     "docs/PUBLISHING.md": "file:-:a6033a40caa20482e2d415a1de39b50460430414a2b4fd5ed7ca11c04df39990",
-    "docs/RELEASING.md": "file:-:836fd24bca0cd5f291d24c8cba4fcbe9399cb8d34d37802a45b678bdfaa345ac",
+    "docs/RELEASING.md": "file:-:00c943d082881a6b54b981377a7f1b3a174afc39f7d0360b267811e78b384568",
     "docs/REMOTE_INDEX_CONSUMER_MVP.md": "file:-:020f270ab71af3b6e5c7cc8ed73892b3efbc080b26cb45c7657b354c6253b77a",
     "docs/REMOTE_PUBLICATION_STAGING_MVP.md": "file:-:eb1ea8bd3faff9e3a344b0a82297a2473d72cd57b58fba17737bbc9e3e2458bf",
     "docs/REPOSITORY_WORKSPACE_MVP.md": "file:-:75eacbd1ba075790e0bdf6f0b34507fd4a22a280790a7495455acdf6da771d3e",
@@ -208,9 +208,9 @@
     "tests/native/publish.S": "file:-:6c8319aa73809dbbd0ff01ce43568c21d4b5ac865b75be996a12287c70384b54",
     "tests/native/sha256.S": "file:-:1359d6bae5e954e4cb67e19848d84917b9f932a663204a09bcc167fdc058a45c"
   },
-  "head": "9c06e69e285fee133181927bf05b644860919546",
+  "head": "c0e52958937ec918dee8cfd04077a2b176bc3f37",
   "include_generated": false,
-  "reviewed_at": "2026-10-08T10:03:02.899932+00:00",
+  "reviewed_at": "2026-10-08T10:04:03.028012+00:00",
   "schema_version": 2,
   "separate_checkouts": []
 }
