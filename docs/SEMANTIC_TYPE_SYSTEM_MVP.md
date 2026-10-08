@@ -84,6 +84,21 @@ Implementation
   -> conformance evidence
 ```
 
+## Namespaced extension Facets
+
+Package-specific semantics that the core Facet vocabulary does not model yet
+are declared as namespaced extension Facets:
+
+```toml
+[guarantees.extensions."org.example.audio"]
+denormal_policy = "flush"
+```
+
+They participate in canonicalization, the Semantic Fingerprint and the exact
+Facet index exactly like core Facets. Matching is exact and directional, and a
+declared extension constrains nothing until a consumer requires it. See
+[`spec/SEMANTIC_FACETS.md`](../spec/SEMANTIC_FACETS.md).
+
 ## Current limits
 
 The Assembly CLI still consumes a generated bootstrap semantic table.

@@ -581,6 +581,12 @@ substitution decisions across multiple packages.
 
 Package-specific semantics belong in namespaced extension Facets first.
 
+Extension Facets are namespaced, exact and directional: a package may publish
+implementation-specific behavior without constraining anyone, and a consumer
+may require a matching guarantee explicitly. They participate in the Semantic
+Fingerprint and Facet index like core Facets, so an extension difference is a
+real compatibility island rather than a comment.
+
 ### Profiles are convenience, not mandatory objects
 
 Do not create a new named Profile for every one-off combination.

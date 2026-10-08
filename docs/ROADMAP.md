@@ -115,7 +115,7 @@
 - [x] CLI `asmory semantics` / `asmory match`
 - [x] arbitrary remote Provider candidate index
 - [x] resolver Facet inverted indexes
-- [ ] namespaced extension Facets
+- [x] namespaced extension Facets
 
 ## M3.5 — Evidence loop
 

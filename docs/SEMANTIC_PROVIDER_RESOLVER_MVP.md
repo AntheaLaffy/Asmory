@@ -12,9 +12,10 @@ semantic fingerprint -> Providers
 exact Facet key -> Providers
 ```
 
-The client accepts a local Profile document, uses exact interface Facets only to
-narrow the server-side candidate set, then runs the existing directional
-Semantic Facet matcher on each candidate's canonical semantics.
+The client accepts a local Profile document, uses exact interface Facets and
+required namespaced extension Facets only to narrow the server-side candidate
+set, then runs the existing directional Semantic Facet matcher on each
+candidate's canonical semantics.
 
 Machine compatibility is checked only after semantic compatibility.
 
