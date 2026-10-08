@@ -86,6 +86,15 @@ make cli-smoke
   fallback 测量只能用作本地诊断，不能作为该 Contract 下接受的 Registry Evidence。
 - 完成后检查 `git diff --check`，如实报告已运行的验证和环境限制。
 
+## 仓库推送
+
+`main` 同时发布到两个 GitHub 仓库：`origin`（`AntheaLaffy/Asmory`，个人开发）
+和 `upstream`（`Asmory/Asmory`，对外组织）。两者同等承载提交，`origin` 配置了
+两个 push URL，普通 `git push` 会同时更新两者；也可 `git push upstream main`
+显式推送。公开身份仍是 `Asmory/Asmory`：CI / Pages 徽章、Package `provider`
+字段和 Registry provenance 都指向它，不要把个人仓库写进这些位置。命令与重建
+方式见 [docs/RELEASING.md](docs/RELEASING.md)。
+
 ## 项目 skills
 
 技能位于 `.agents/skills/<name>/SKILL.md`，是随仓库携带的本机技能副本。
