@@ -145,5 +145,6 @@ asmory remote add-profile <profile.toml>
 ```
 
 Candidate discovery comes from the active semantic Provider index. Exact
-interface Facets are server-side prefilters; the full directional Facet matcher
-remains the compatibility authority.
+interface Facets and required namespaced extension Facets are server-side
+prefilters; the full directional Facet matcher remains the compatibility
+authority.

@@ -54,6 +54,21 @@ There is no arbitrary SAT/Boolean constraint language.
 
 The resolver should stay understandable before it becomes clever.
 
+### Namespaced extension Facets
+
+Semantics the core vocabulary does not model yet are declared as namespaced
+extension Facets (see [SEMANTIC_FACETS.md](SEMANTIC_FACETS.md)). They use the
+`exact` relation and the same direction as the rest of the matcher:
+
+```text
+consumer.requires.extensions[key] == implementation.guarantees.extensions[key]
+implementation.requires.extensions[key] == consumer.guarantees.extensions[key]
+```
+
+A missing counterpart fails the check. An extension that only one side
+declares fails no check, because it expresses behavior the other side never
+asked for.
+
 ## Semantic Fingerprint
 
 Exact identity is:

@@ -60,6 +60,9 @@ range
 
 Arbitrary Boolean/SAT expressions are deliberately excluded.
 
+Namespaced extension Facets use the `exact` relation and the same directional
+requirements/guarantees split as core Facets.
+
 ## Explainability
 
 A resolver should be able to explain rejection:

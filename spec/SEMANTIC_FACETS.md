@@ -60,7 +60,8 @@ Canonicalization should eventually define:
 - deterministic ordering;
 - explicit defaults;
 - normalized numeric representation;
-- versioned Facet schemas.
+- versioned Facet schemas;
+- validated extension namespaces.
 
 Equivalent semantic declarations should produce the same canonical form.
 
@@ -100,14 +101,59 @@ The core set should remain intentionally small.
 Experimental or package-specific semantics should use namespaced extensions
 instead of immediately expanding the core vocabulary.
 
-Conceptually:
+An extension namespace is a dotted, lowercase name, normally reverse-DNS
+style, so unrelated packages cannot silently claim the same meaning:
+
+```text
+org.example.audio
+com.acme.json
+asmory.experimental.reduction
+```
+
+Extension Facets live beside the core Facets under the directional
+requirements and guarantees of the semantic document:
+
+```toml
+[semantics.requires.extensions."org.example.audio"]
+denormal_policy = "preserve"
+
+[semantics.guarantees.extensions."org.example.audio"]
+denormal_policy = "flush"
+```
+
+For the common case where a package describes its own behavior, the semantic
+document may use the root shorthand:
 
 ```toml
 [semantics.extensions."org.example.audio"]
 denormal_policy = "flush"
 ```
 
-Repeated community adoption can later justify promotion into a shared Facet.
+`semantics.extensions` is exactly equivalent to
+`semantics.guarantees.extensions` and canonicalizes to the same form, so the
+fingerprint never depends on which spelling a package chose. Declaring the
+same leaf in both places with different values is rejected instead of guessed.
+
+Extension Facets are part of semantic truth, not metadata:
+
+- they participate in canonicalization and therefore in the Semantic
+  Fingerprint;
+- the registry indexes each extension leaf exactly like a core Facet, under
+  its `requires.extensions.<namespace>.<path>` or
+  `guarantees.extensions.<namespace>.<path>` key;
+- the resolver may use a required extension as an exact prefilter, but
+  directional matching remains the authority.
+
+Matching is exact and directional:
+
+- a consumer requirement must be guaranteed verbatim by the implementation;
+- an implementation requirement must be guaranteed verbatim by the caller;
+- an extension declared by only one side is not a constraint.
+
+That last rule is deliberate. It keeps a package free to publish
+implementation-specific behavior while still letting an explicit consumer
+require it. Repeated community adoption can later justify promotion into a
+shared core Facet or a named Profile.
 
 ## 7. Matching relations
 

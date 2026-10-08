@@ -47,9 +47,14 @@ interface.logical_export="dot_f32"
 interface.calling_convention="sysv64"
 guarantees.numeric.bit_exact=false
 guarantees.determinism.level="same-machine"
+guarantees.extensions.org.example.audio.denormal_policy="flush"
 ```
 
 These keys are used only as cheap candidate prefilters.
+
+A consumer's namespaced extension requirements are prefilters too, but they
+are looked up under the provider's `guarantees.extensions.*` keys because that
+is what the consumer needs the provider to promise.
 
 They do **not** replace directional semantic matching.
 
@@ -87,7 +92,7 @@ asmory remote add-profile ./profiles/core-v1.toml
 ```text
 Profile
   ↓ canonical Facets
-Capability + exact interface Facet prefilter
+Capability + exact interface/extension Facet prefilter
   ↓
 arbitrary active Provider candidates
   ↓
