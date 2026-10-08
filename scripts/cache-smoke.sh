@@ -84,6 +84,21 @@ grep -q '^Cache populated$' <<<"$first"
 [[ ! -e asm.toml ]]
 [[ ! -e asm.lock ]]
 
+echo "== concurrent cache misses publish one immutable object =="
+race_cache="$tmp/race-cache"
+pids=()
+for worker in {1..6}; do
+  ASMORY_CACHE_HOME="$race_cache" "$BIN" cache simd-dot >"$tmp/race-$worker.out" 2>&1 &
+  pids+=("$!")
+done
+for pid in "${pids[@]}"; do
+  wait "$pid"
+done
+race_object="$race_cache/objects/sha256/$expected"
+[[ "$(sha256sum "$race_object" | awk '{print $1}')" == "$expected" ]]
+[[ "$(stat -c '%a:%h' "$race_object")" == "444:1" ]]
+[[ -z "$(find "$race_cache" -name '.asmory-cache.*' -print)" ]]
+
 echo "== cache hit verifies and needs no network =="
 kill "$PID" 2>/dev/null || true
 wait "$PID" 2>/dev/null || true

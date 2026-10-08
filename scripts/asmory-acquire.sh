@@ -50,6 +50,12 @@ verifier="$(dirname -- "${BASH_SOURCE[0]}")/asmory-sha256"
   exit 10
 }
 
+publisher="$(dirname -- "${BASH_SOURCE[0]}")/asmory-file-publish"
+[[ -x "$publisher" ]] || {
+  echo "acquire: native file publication companion unavailable" >&2
+  exit 10
+}
+
 if [[ -e "$output" || -L "$output" ]]; then
   echo "acquire: refusing to overwrite existing destination: $output" >&2
   exit 12
@@ -89,9 +95,8 @@ if [[ "$actual" != "$expected" ]]; then
 fi
 
 # Publish atomically without clobbering a destination created during download.
-chmod 0444 "$tmp"
-if ! ln -- "$tmp" "$output"; then
-  echo "acquire: destination appeared during acquisition; refusing overwrite" >&2
+if ! "$publisher" "$tmp" "$output"; then
+  echo "acquire: publication failed; refusing overwrite" >&2
   exit 12
 fi
 rm -f -- "$tmp"

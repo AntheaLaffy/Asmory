@@ -92,6 +92,7 @@ grep -q 'verification exact' "$tmp/acquire.out"
 expected="$(sha256sum "$ROOT/build/packages/simd-dot-0.1.0.tar.gz" | awk '{print $1}')"
 actual="$(sha256sum simd-dot-0.1.0.tar.gz | awk '{print $1}')"
 [[ "$expected" == "$actual" ]]
+[[ "$(stat -c '%a:%h' simd-dot-0.1.0.tar.gz)" == "444:1" ]]
 [[ "$manifest_before" == "$(sha256sum asm.toml | awk '{print $1}')" ]]
 [[ "$lock_before" == "$(sha256sum asm.lock | awk '{print $1}')" ]]
 

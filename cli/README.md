@@ -21,8 +21,9 @@ an output filename or a static library. Builds preserve locked Variant identity
 and record local modifications. See [the build/link MVP](../docs/BUILD_LINK_MVP.md).
 
 Acquisition and state/model helpers still use Bash/Python while reusable
-Assembly capabilities are added. The process executor, ELF checker and SHA-256
-file verifier are syscall-only Assembly. Acquisition/cache hashing and build
+Assembly capabilities are added. The process executor, ELF checker, file publisher
+and SHA-256 file verifier are syscall-only Assembly. Acquisition/cache publication
+uses a native no-clobber primitive. Acquisition/cache hashing and build
 file digests use the native verifier without an external-tool fallback; the
 planner's replacement conditions are explicit in
 [the build contract](../spec/BUILD.md). Install the complete tool set with

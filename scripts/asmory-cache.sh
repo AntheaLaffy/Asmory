@@ -31,6 +31,12 @@ verifier="$(dirname -- "${BASH_SOURCE[0]}")/asmory-sha256"
   echo "cache: native SHA-256 companion unavailable" >&2
   exit 10
 }
+publisher="$(dirname -- "${BASH_SOURCE[0]}")/asmory-file-publish"
+[[ -x "$publisher" ]] || {
+  echo "cache: native file publication companion unavailable" >&2
+  exit 10
+}
+
 command -v asmory-acquire >/dev/null 2>&1 || {
   echo "cache: bootstrap acquisition backend unavailable" >&2
   exit 10
@@ -91,9 +97,7 @@ trap cleanup EXIT INT TERM
 asmory-acquire "$package" "$version" "$expected" "$stage/artifact" >/dev/null
 
 # Atomic, no-clobber publication on the same filesystem.
-if ln -- "$stage/artifact" "$object" 2>/dev/null; then
-  chmod 0444 "$object"
-else
+if ! "$publisher" "$stage/artifact" "$object" 2>/dev/null; then
   # A concurrent writer may have won. Reuse only if independently verified.
   if ! verify_object "$object"; then
     echo "cache: publication race produced a non-verifiable object" >&2

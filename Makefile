@@ -13,11 +13,12 @@ BUILD_RUNNER := $(BUILD)/asmory-build-runner
 OBJECT_CHECK := $(BUILD)/asmory-object-check
 TOOLCHAIN_CHECK := $(BUILD)/asmory-toolchain-check
 TEXT_SPLICE := $(BUILD)/asmory-text-splice
+FILE_PUBLISH := $(BUILD)/asmory-file-publish
 SHA256_HELPER := $(BUILD)/asmory-sha256
 ADD_METADATA_HELPER := $(BUILD)/asmory-add-metadata
 WORKSPACE_MODEL_HELPER := $(BUILD)/workspace_model.py
 MACHINE_MODEL_HELPER := $(BUILD)/machine_model.py
-NATIVE_OBJECTS := $(BUILD)/native/file.o $(BUILD)/native/process.o $(BUILD)/native/elf64.o $(BUILD)/native/text.o $(BUILD)/native/capture.o $(BUILD)/native/sha256.o
+NATIVE_OBJECTS := $(BUILD)/native/file.o $(BUILD)/native/process.o $(BUILD)/native/elf64.o $(BUILD)/native/text.o $(BUILD)/native/capture.o $(BUILD)/native/sha256.o $(BUILD)/native/publish.o
 NATIVE_LIBRARY := $(BUILD)/native/libasmory-native.a
 ACQUIRE_HELPER := $(BUILD)/asmory-acquire
 CACHE_HELPER := $(BUILD)/asmory-cache
@@ -58,13 +59,13 @@ STATIC := $(wildcard registry/static/*) $(wildcard registry/data/*)
 .PHONY: all registry registry-write cli examples packages registry-data evidence-index semantic-index semantic-check run check smoke cli-smoke workspace-smoke acquire-smoke cache-smoke add-smoke state-smoke delta-smoke vendor-smoke repo-workspace-smoke fork-publication-smoke remote-publish-smoke promotion-smoke remote-index-smoke semantic-provider-smoke dev clean install-user install-registry-write perf-build perf-power-status perf perf-variants optimize-simd-dot contract-check conformance-build conformance
 .PHONY: build-smoke release-bundle
 .PHONY: toolchain-smoke
-.PHONY: multi-add-smoke sha256-smoke
+.PHONY: multi-add-smoke sha256-smoke file-publish-smoke
 
 all: registry registry-write cli examples
 
 registry: $(REGISTRY_BIN)
 registry-write: $(REGISTRY_WRITE_HELPER) $(REGISTRY_AUTH_HELPER)
-cli: $(CLI_BIN) $(BUILD_HELPER) $(BUILD_RUNNER) $(OBJECT_CHECK) $(TOOLCHAIN_CHECK) $(MACHINE_MODEL_HELPER) $(TEXT_SPLICE) $(SHA256_HELPER) $(ADD_METADATA_HELPER) $(WORKSPACE_MODEL_HELPER) $(ACQUIRE_HELPER) $(CACHE_HELPER) $(ADD_HELPER) $(MATERIALIZE_HELPER) $(STATE_HELPER) $(DELTA_HELPER) $(VENDOR_HELPER) $(WORKSPACE_HELPER) $(FORK_HELPER) $(PUBLISH_HELPER) $(PROMOTE_HELPER) $(REMOTE_HELPER) $(SEMANTIC_RESOLVER_HELPER) $(SEMANTIC_MODEL_HELPER)
+cli: $(CLI_BIN) $(BUILD_HELPER) $(BUILD_RUNNER) $(OBJECT_CHECK) $(TOOLCHAIN_CHECK) $(MACHINE_MODEL_HELPER) $(TEXT_SPLICE) $(FILE_PUBLISH) $(SHA256_HELPER) $(ADD_METADATA_HELPER) $(WORKSPACE_MODEL_HELPER) $(ACQUIRE_HELPER) $(CACHE_HELPER) $(ADD_HELPER) $(MATERIALIZE_HELPER) $(STATE_HELPER) $(DELTA_HELPER) $(VENDOR_HELPER) $(WORKSPACE_HELPER) $(FORK_HELPER) $(PUBLISH_HELPER) $(PROMOTE_HELPER) $(REMOTE_HELPER) $(SEMANTIC_RESOLVER_HELPER) $(SEMANTIC_MODEL_HELPER)
 examples: $(EXAMPLE_OBJ)
 packages: $(PACKAGE_ARCHIVE)
 registry-data: $(RELEASE_JSON) $(EVIDENCE_JSON) $(SEMANTICS_JSON) $(CAPABILITY_JSON) $(PROFILE_CORE_JSON) $(PROFILE_STRICT_JSON)
@@ -144,6 +145,12 @@ $(BUILD)/cli/text-splice.o: cli/src/text-splice.S | $(BUILD)/cli
 	$(AS) $(ASFLAGS) $< -o $@
 
 $(TEXT_SPLICE): $(BUILD)/cli/text-splice.o $(NATIVE_LIBRARY)
+	$(LD) $(LDFLAGS) $^ -o $@
+
+$(BUILD)/cli/file-publish.o: cli/src/file-publish.S | $(BUILD)/cli
+	$(AS) $(ASFLAGS) $< -o $@
+
+$(FILE_PUBLISH): $(BUILD)/cli/file-publish.o $(NATIVE_LIBRARY)
 	$(LD) $(LDFLAGS) $^ -o $@
 
 $(BUILD)/cli/sha256.o: cli/src/sha256.S | $(BUILD)/cli
@@ -256,6 +263,7 @@ install-user: cli
 	install -Dm755 $(TOOLCHAIN_CHECK) $(HOME)/.local/bin/asmory-toolchain-check
 	install -Dm644 $(MACHINE_MODEL_HELPER) $(HOME)/.local/bin/machine_model.py
 	install -Dm755 $(TEXT_SPLICE) $(HOME)/.local/bin/asmory-text-splice
+	install -Dm755 $(FILE_PUBLISH) $(HOME)/.local/bin/asmory-file-publish
 	install -Dm755 $(SHA256_HELPER) $(HOME)/.local/bin/asmory-sha256
 	install -Dm755 $(ADD_METADATA_HELPER) $(HOME)/.local/bin/asmory-add-metadata
 	install -Dm644 $(WORKSPACE_MODEL_HELPER) $(HOME)/.local/bin/workspace_model.py
@@ -282,7 +290,7 @@ install-registry-write: $(REGISTRY_WRITE_HELPER) $(REGISTRY_AUTH_HELPER)
 
 dev: clean all check smoke cli-smoke
 
-check: all sha256-smoke contract-check semantic-check workspace-smoke repo-workspace-smoke build-smoke toolchain-smoke multi-add-smoke
+check: all file-publish-smoke sha256-smoke contract-check semantic-check workspace-smoke repo-workspace-smoke build-smoke toolchain-smoke multi-add-smoke
 	@echo '== registry binary =='
 	@file $(REGISTRY_BIN)
 	@echo 'bytes:'
@@ -306,6 +314,9 @@ cli-smoke: cli
 build-smoke: cli examples packages release-bundle
 	./scripts/build-smoke.sh
 
+file-publish-smoke: $(FILE_PUBLISH) $(SHA256_HELPER)
+	python3 scripts/file-publish-smoke.py
+
 sha256-smoke: $(SHA256_HELPER)
 	python3 scripts/sha256-smoke.py
 
@@ -318,7 +329,7 @@ multi-add-smoke: cli
 release-bundle: all
 	rm -rf -- $(BUILD)/release/asmory-linux-x86_64
 	mkdir -p $(BUILD)/release/asmory-linux-x86_64
-	cp $(CLI_BIN) $(REGISTRY_BIN) $(BUILD_HELPER) $(BUILD_RUNNER) $(OBJECT_CHECK) $(TOOLCHAIN_CHECK) $(MACHINE_MODEL_HELPER) $(TEXT_SPLICE) $(SHA256_HELPER) $(ADD_METADATA_HELPER) $(WORKSPACE_MODEL_HELPER) $(ACQUIRE_HELPER) $(CACHE_HELPER) $(ADD_HELPER) $(MATERIALIZE_HELPER) $(STATE_HELPER) $(DELTA_HELPER) $(VENDOR_HELPER) $(WORKSPACE_HELPER) $(FORK_HELPER) $(PUBLISH_HELPER) $(PROMOTE_HELPER) $(REMOTE_HELPER) $(SEMANTIC_RESOLVER_HELPER) $(SEMANTIC_MODEL_HELPER) $(REGISTRY_WRITE_HELPER) $(REGISTRY_AUTH_HELPER) README.md LICENSE $(BUILD)/release/asmory-linux-x86_64/
+	cp $(CLI_BIN) $(REGISTRY_BIN) $(BUILD_HELPER) $(BUILD_RUNNER) $(OBJECT_CHECK) $(TOOLCHAIN_CHECK) $(MACHINE_MODEL_HELPER) $(TEXT_SPLICE) $(FILE_PUBLISH) $(SHA256_HELPER) $(ADD_METADATA_HELPER) $(WORKSPACE_MODEL_HELPER) $(ACQUIRE_HELPER) $(CACHE_HELPER) $(ADD_HELPER) $(MATERIALIZE_HELPER) $(STATE_HELPER) $(DELTA_HELPER) $(VENDOR_HELPER) $(WORKSPACE_HELPER) $(FORK_HELPER) $(PUBLISH_HELPER) $(PROMOTE_HELPER) $(REMOTE_HELPER) $(SEMANTIC_RESOLVER_HELPER) $(SEMANTIC_MODEL_HELPER) $(REGISTRY_WRITE_HELPER) $(REGISTRY_AUTH_HELPER) README.md LICENSE $(BUILD)/release/asmory-linux-x86_64/
 
 workspace-smoke: $(CLI_BIN)
 	./scripts/workspace-smoke.sh

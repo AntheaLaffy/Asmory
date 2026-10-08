@@ -52,6 +52,7 @@
 - [x] SHA-256-only global object identity
 - [x] verified cache hits and corruption rejection
 - [x] atomic no-clobber cache publication
+- [x] reusable native read-only no-clobber publication for acquisition and cache
 - [x] content-addressed global cache
 - [x] safe project-local materialization
 - [x] archive traversal/link/special-file rejection

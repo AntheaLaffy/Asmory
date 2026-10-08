@@ -263,8 +263,9 @@ The repository exposes two static Linux x86-64 Assembly entry points:
 - `asmory` — package-manager CLI bootstrap.
 
 Reusable syscall-only native helpers provide process execution, ELF validation,
-toolchain checks, metadata byte editing and streaming SHA-256. Acquisition,
-cache verification and build file hashes use the native SHA-256 companion.
+toolchain checks, metadata byte editing, streaming SHA-256 and atomic read-only
+file publication. Acquisition/cache publication uses the native no-clobber
+companion; cache verification and build file hashes use native SHA-256.
 See [the native interfaces](native/README.md) for their contracts.
 
 Build everything:

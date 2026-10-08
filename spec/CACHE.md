@@ -37,8 +37,10 @@ The digest-shaped path is never trusted by itself. Every hit is re-hashed and
 must equal the resolver-provided Artifact SHA-256. Hashing uses the sibling
 syscall-only `asmory-sha256` verifier. Missing verifiers abort the operation;
 read/hash failures refuse reuse or publication without a fallback to external
-hash tools. Cache orchestration remains transitional Bash until native directory
-and transactional publication primitives cover this lifecycle.
+hash tools. Cache publication uses the sibling syscall-only
+`asmory-file-publish`; a missing publisher aborts before creating cache directories.
+Cache orchestration remains transitional Bash until native cache-root policy,
+secure staging-directory creation and cleanup cover this lifecycle.
 
 A corrupt object is a hard error. Draft 0.1 deliberately refuses silent repair
 or replacement so corruption remains observable.
@@ -48,8 +50,12 @@ or replacement so corruption remains observable.
 A miss delegates to verified Artifact acquisition.
 
 After acquisition has already verified the bytes, cache publication uses an
-atomic no-clobber hard link on the same filesystem. The temporary staging link
-is removed immediately.
+atomic no-clobber hard link on the same filesystem through
+`asmory_file_publish`. The native primitive checks a single-link regular staging
+inode, sets mode `0444`, fsyncs the file and links the opened inode. The temporary
+staging link is removed immediately. A losing concurrent publisher only reuses
+the winner after independently verifying its digest; it never chmods the winner.
+See [the native contract](../native/README.md) for ownership and durability limits.
 
 The surviving object is mode `0444`.
 

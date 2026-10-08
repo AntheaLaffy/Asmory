@@ -9,6 +9,7 @@ and ELF checker link the same library.
 | `asmory_write_all` | fd, bytes, byte count | 0 or negative Linux errno; retries EINTR and partial writes |
 | `asmory_file_map` | path, view pointer | 0 or negative errno; view is two u64 fields: address and byte length; caller owns mmap |
 | `asmory_file_unmap` | view pointer | munmap result; releases a successful view |
+| `asmory_file_publish` | staging path, destination path | 0 or negative errno; publishes a read-only hard link atomically without overwrite; caller retains staging link for cleanup |
 | `asmory_process_run` | absolute-path argv, envp | child exit code, 128 + termination signal, or negative errno; waits for its own child |
 | `asmory_exec_sibling` | helper basename, argv, envp | execve replacement, or negative errno; finds the helper beside `/proc/self/exe` |
 | `asmory_process_run_sibling` | helper basename, argv, envp | waits for a sibling helper and returns exit/signal status or errno |
@@ -63,3 +64,22 @@ acquisition/cache verification use this companion without a fallback.
 `make sha256-smoke` checks known vectors, independent Python digest results,
 padding/read boundaries, split updates, direct SysV64 calls and refusal behavior.
 Python remains the test oracle rather than the implementation of the hash wheel.
+
+`asmory-file-publish <stage> <destination>` uses `asmory_file_publish`, printing
+no output on success or exiting 12 on failure. Acquisition and cache publication
+use this companion without a system `ln`/`chmod` fallback. It opens the stage
+without following its final symlink, rejects nonregular files and files with
+multiple hard links, sets mode `0444` and fsyncs before making the destination
+visible. `linkat` follows `/proc/self/fd/<opened-fd>` to publish the checked inode;
+replacing the staging pathname cannot redirect the published link. Existing
+files, directories and dangling symlinks at the destination are never replaced.
+Cross-filesystem publication fails without a copy fallback.
+
+The caller must own the stage exclusively, finish digest verification first,
+keep its bytes stable until return, and remove its staging link afterward.
+The primitive does not verify a digest or prevent writes through already open
+descriptors. Failure can leave the stage at mode `0444`, but preserves destination
+contents. It needs mounted `/proc` and same-filesystem paths. File fsync does not
+promise directory-entry durability after power loss. `make file-publish-smoke`
+checks inode/mode, no-clobber and source refusal, concurrent publication, direct
+SysV64 calls and missing-companion refusal.

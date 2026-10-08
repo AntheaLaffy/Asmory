@@ -39,8 +39,12 @@ The current Assembly CLI delegates transport to an explicit Bash companion
 using system `curl`. The helper verifies bytes with its sibling syscall-only
 `asmory-sha256`, backed by the reusable native streaming SHA-256 primitive.
 A missing or failed verifier aborts acquisition before publication; there is no
-external-tool fallback. Bash transport/publication remains transitional until
-native HTTP/TLS and transactional file publication satisfy this contract.
+external-tool fallback. Its sibling `asmory-file-publish` publishes the verified
+staging inode through the native no-clobber file primitive; mode `0444` and file
+fsync precede destination visibility. A missing publisher aborts before download.
+See [the native interface](../native/README.md) for staging ownership and cleanup.
+Bash transport/temporary-file orchestration remains transitional until native
+HTTP/TLS, secure staging-directory creation and cleanup cover this lifecycle.
 
 This is an implementation bootstrap, not semantic authority. Resolver identity
 remains in the Assembly CLI / generated Registry metadata.
