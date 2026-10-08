@@ -98,6 +98,11 @@ host Machine Contract filter
 accepted Providers
 ```
 
+The same filter serves Package-name resolution and checks architecture, OS,
+object format, ABI/export calling convention, OS-enabled ISA and a supported
+assembler/minimum version. Native GAS version/target probing is a hard gate;
+Provider identity, tuning or Evidence cannot bypass it.
+
 ## Safe selection rule
 
 Draft 0.1 has no global Evidence/trust ranking policy for choosing among

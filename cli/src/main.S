@@ -9,6 +9,9 @@ cmd_patch:      .asciz "patch"
 cmd_reapply:    .asciz "reapply"
 cmd_vendor:     .asciz "vendor"
 cmd_workspace:  .asciz "workspace"
+cmd_build:      .asciz "build"
+build_argv0:    .asciz "asmory-build"
+build_backend_msg:.asciz "asmory build: build backend unavailable beside CLI\n"
 cmd_fork:       .asciz "fork"
 cmd_publish_prepare:.asciz "publish-prepare"
 cmd_publish:     .asciz "publish"
@@ -29,11 +32,14 @@ cmd_match:      .asciz "match"
 cmd_vflag:      .asciz "--version"
 cmd_hflag:      .asciz "--help"
 pkg_simd_dot:   .asciz "simd-dot"
+toolchain_helper: .asciz "asmory-toolchain-check"
 
 .include "build/generated/cli_registry.inc"
+.align 8
+toolchain_argv: .quad toolchain_helper, registry_toolchain_assembler, registry_toolchain_min_version, registry_toolchain_syntax, 0
 
 help_msg:
-.asciz "Asmory 0.1.0-dev\n\nUsage:\n  asmory init\n  asmory acquire <package> <output>\n  asmory cache <package>\n  asmory add <package>\n  asmory status\n  asmory restore <package>\n  asmory patch <package>\n  asmory reapply <package>\n  asmory vendor <package>\n  asmory workspace [list|check]\n  asmory fork <package> <new-package>\n  asmory publish-prepare <package>\n  asmory publish <package>\n  asmory promote <package>\n  asmory remote <search|info|versions|resolve|add|providers|match-profile|add-profile> [arg]\n  asmory target\n  asmory search [query]\n  asmory info <package>\n  asmory versions <package>\n  asmory resolve <package>\n  asmory explain <package>\n  asmory audit <package>\n  asmory evidence <package>\n  asmory semantics <package>\n  asmory match <package> <profile>\n  asmory --version\n  asmory help\n\nAssembly packages with explicit ISA/ABI contracts.\n"
+.asciz "Asmory 0.1.0-dev\n\nUsage:\n  asmory init\n  asmory acquire <package> <output>\n  asmory cache <package>\n  asmory add <package>\n  asmory status\n  asmory build [--package <name> [--variant <id>]]\n  asmory restore <package>\n  asmory patch <package>\n  asmory reapply <package>\n  asmory vendor <package>\n  asmory workspace [list|check]\n  asmory fork <package> <new-package>\n  asmory publish-prepare <package>\n  asmory publish <package>\n  asmory promote <package>\n  asmory remote <search|info|versions|resolve|add|providers|match-profile|add-profile> [arg]\n  asmory target\n  asmory search [query]\n  asmory info <package>\n  asmory versions <package>\n  asmory resolve <package>\n  asmory explain <package>\n  asmory audit <package>\n  asmory evidence <package>\n  asmory semantics <package>\n  asmory match <package> <profile>\n  asmory --version\n  asmory help\n\nAssembly packages with explicit ISA/ABI contracts.\n"
 version_msg: .asciz "asmory 0.1.0-dev\n"
 unknown_msg: .asciz "asmory: unknown command (try 'asmory help')\n"
 missing_pkg_msg: .asciz "asmory info: package name required\n"
@@ -147,6 +153,7 @@ init_ignore_body:
 .ascii ".vendor/\n"
 .ascii ".fork/\n"
 .ascii ".publish/\n"
+.ascii "build/\n"
 .ascii "workspace.lock\n"
 init_ignore_body_end:
 
@@ -220,7 +227,7 @@ res_not_evaluated:  .asciz "not evaluated"
 res_candidate_note: .asciz "  candidates   stable + experimental compatible set\n"
 res_final_none:     .asciz "  final        none\n"
 res_final_prefix:   .asciz "  final        "
-res_fail_msg:       .asciz "asmory resolve: no compatible Variant; host lacks AVX2/FMA required by simd-dot\n"
+res_fail_msg:       .asciz "asmory resolve: no compatible Variant; ISA/toolchain Machine Contract is not satisfied\n"
 res_audit_note:     .asciz "\nNote\n  Exact Artifact != Safe Artifact\n  Digest verification proves identity, not benign behavior.\n"
 
 target_head: .asciz "Asmory host target\n\n"
@@ -333,6 +340,12 @@ _start:
     call streq
     test %eax, %eax
     jnz .do_workspace
+
+    mov %r13, %rdi
+    lea cmd_build(%rip), %rsi
+    call streq
+    test %eax, %eax
+    jnz .do_build
 
     mov %r13, %rdi
     lea cmd_fork(%rip), %rsi
@@ -953,6 +966,17 @@ _start:
     mov $2, %edi
     jmp exit_process
 
+.do_build:
+    # argv[1] becomes the helper's argv[0]; the kernel already terminated argv.
+    lea build_argv0(%rip), %rdi
+    lea 16(%rsp), %rsi
+    mov envp_ptr(%rip), %rdx
+    call asmory_exec_sibling
+    lea build_backend_msg(%rip), %rdi
+    call print_cstr
+    mov $8, %edi
+    jmp exit_process
+
 .do_fork:
     cmp $4, %r12
     jb .missing_fork
@@ -1424,6 +1448,13 @@ _start:
     lea registry_required_isa(%rip), %rsi
     call print_kv
 
+    lea res_lab_requires(%rip), %rdi
+    lea registry_toolchain_assembler(%rip), %rsi
+    call print_kv
+    lea res_lab_version(%rip), %rdi
+    lea registry_toolchain_min_version(%rip), %rsi
+    call print_kv
+
     call check_bootstrap_variant
     test %eax, %eax
     jz .explain_incompatible
@@ -1751,6 +1782,7 @@ _start:
 
 # eax=1 when this bootstrap package's Machine Contract is legal.
 check_bootstrap_variant:
+    sub $8, %rsp
     call detect_cpu
 
     cmpb $1, avx_ok(%rip)
@@ -1764,11 +1796,19 @@ check_bootstrap_variant:
     bt $12, %eax
     jnc .cbv_no
 
-    mov $1, %eax
+    lea toolchain_helper(%rip), %rdi
+    lea toolchain_argv(%rip), %rsi
+    mov envp_ptr(%rip), %rdx
+    call asmory_process_run_sibling
+    test %rax, %rax
+    sete %al
+    movzbl %al, %eax
+    add $8, %rsp
     ret
 
 .cbv_no:
     xor %eax, %eax
+    add $8, %rsp
     ret
 
 # Detect CPUID leaves and classify x86-64 baseline.
@@ -2009,23 +2049,7 @@ write_all_fd:
     mov $-5, %rax
     ret
 
-# int streq(const char *a, const char *b) -> eax 0/1
-streq:
-    xor %eax, %eax
-.st_loop:
-    movzbq (%rdi), %rcx
-    movzbq (%rsi), %rdx
-    cmp %dl, %cl
-    jne .st_no
-    test %cl, %cl
-    je .st_yes
-    inc %rdi
-    inc %rsi
-    jmp .st_loop
-.st_yes:
-    mov $1, %eax
-.st_no:
-    ret
+.set streq, asmory_text_equal
 
 # print zero-terminated string at rdi to stdout.
 print_cstr:

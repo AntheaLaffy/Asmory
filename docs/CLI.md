@@ -49,3 +49,12 @@ Asmory keeps these stages separate:
 1. correctness compatibility;
 2. optional microarchitecture/performance preference;
 3. future benchmark/profile-driven selection.
+
+## Offline build handoff
+
+`asmory build` hands the current manifest/lock/local source state to the GAS
+planner. The CLI locates the helper beside its own executable through the native
+`asmory_exec_sibling` routine, preserving argument boundaries without a shell.
+The native executor and ELF checker handle process execution and object/export
+validation. Source snapshots and successful generation selection keep compiler
+failures from replacing prior results. See [BUILD_LINK_MVP.md](BUILD_LINK_MVP.md).

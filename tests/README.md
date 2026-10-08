@@ -1,10 +1,25 @@
 # Tests
 
-Future compatibility, resolver, ABI, and registry integration tests live here.
-
-For the current MVP, run:
+The maintained behavior tests live in `scripts/*-smoke.sh` and `scripts/*-smoke.py` and are exposed by
+the Makefile. Run the baseline serially:
 
 ```bash
 make check
 make smoke
+make cli-smoke
 ```
+
+`make check` includes model checks, project/repository workspace tests and
+`make build-smoke`, toolchain tests.
+Build tests execute linked programs and consume generated
+static libraries, covering offline source identity and failed-build preservation.
+`make sha256-smoke` checks the native hash primitive against fixed vectors and
+an independent oracle, including stream/padding boundaries, direct Assembly ABI
+consumption, overflow, empty/large files and refused special/symlink inputs. Its
+direct consumer lives in `tests/native/sha256.S` and runs without libc.
+Lifecycle/remote tests have dedicated Make targets listed in `AGENTS.md`.
+
+Registry tests share ports and process names, so smoke targets must run serially.
+Kernel correctness is separate: `make conformance`. Performance measurement
+requires its own power policy and exact Artifact/Contract binding; see
+`spec/PERFORMANCE.md`.

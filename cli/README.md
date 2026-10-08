@@ -1,34 +1,29 @@
 # Asmory CLI
 
-The Asmory CLI is intentionally Assembly-first.
+The public Linux x86-64 CLI is a static Assembly ELF built with GNU `as` and
+`ld`. Its CPUID/XGETBV detector checks OS extended-register state before reporting
+AVX-family features as usable.
 
-The current Linux x86-64 bootstrap client is a static ELF built with GNU `as`
-and `ld`, with no libc and no language runtime.
+The CLI supports host inspection, bootstrap/remote discovery and resolution,
+semantic Provider matching, verified acquisition, local dependency lifecycle,
+repository workspaces, publication staging/promotion and offline builds. See
+[the main README](../README.md) for commands and [CLI architecture](../docs/CLI.md)
+for dispatch and compatibility rules.
 
-## Implemented
-
-```text
-asmory target
-asmory search [query]
-asmory info <package>
-asmory --version
-asmory help
+```bash
+asmory init
+asmory add simd-dot
+asmory build
 ```
 
-`asmory target` is real host detection. It uses `CPUID` and `XGETBV` to inspect
-CPU capabilities and verify that the operating system enables the extended
-register state required for AVX / AVX-512 before reporting those features as
-usable.
+The default application source is `src/main.S`; `[build]` can name other sources,
+an output filename or a static library. Builds preserve locked Variant identity
+and record local modifications. See [the build/link MVP](../docs/BUILD_LINK_MVP.md).
 
-The current `search` and `info` commands use the bootstrap index bundled with
-the CLI. They exist to stabilize the command UX before the network registry
-protocol is wired in.
-
-## Next
-
-- HTTP registry client
-- target negotiation against remote package Variants
-- `asmory add`
-- lockfile
-- source/object cache
-- assembler adapter selection
+Acquisition and state/model helpers still use Bash/Python while reusable
+Assembly capabilities are added. The process executor, ELF checker and SHA-256
+file verifier are syscall-only Assembly. Acquisition/cache hashing and build
+file digests use the native verifier without an external-tool fallback; the
+planner's replacement conditions are explicit in
+[the build contract](../spec/BUILD.md). Install the complete tool set with
+`make install-user`; release archives include the same helper dependencies.

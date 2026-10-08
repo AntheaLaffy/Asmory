@@ -35,8 +35,12 @@ Archive path and symlink safety belong to the later materialization stage.
 
 ## Bootstrap transport backend
 
-The current Assembly CLI delegates byte transport and SHA-256 computation to an
-explicit companion helper using system `curl` and `sha256sum`.
+The current Assembly CLI delegates transport to an explicit Bash companion
+using system `curl`. The helper verifies bytes with its sibling syscall-only
+`asmory-sha256`, backed by the reusable native streaming SHA-256 primitive.
+A missing or failed verifier aborts acquisition before publication; there is no
+external-tool fallback. Bash transport/publication remains transitional until
+native HTTP/TLS and transactional file publication satisfy this contract.
 
 This is an implementation bootstrap, not semantic authority. Resolver identity
 remains in the Assembly CLI / generated Registry metadata.

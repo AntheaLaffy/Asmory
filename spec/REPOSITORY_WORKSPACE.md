@@ -112,6 +112,10 @@ Literal Assembly includes (`.include`, `%include`, `#include`) must remain
 inside the Package root. A `../` include is only legal when it still resolves
 inside that same Package root.
 
+For GAS, `.include` and `.incbin` resolve from the Package-root working
+directory, matching the build adapter. This also allows root-relative includes
+from sources nested under `src/` without treating the source's parent as cwd.
+
 Shared reusable source across Package roots should become an explicit Package
 dependency.
 

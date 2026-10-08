@@ -14,14 +14,10 @@ import subprocess
 import sys
 from urllib.parse import quote, urlencode, urlsplit
 
+from machine_model import MachineError, compatible_variant, host_facts as native_host_facts
+
 NAME_RE = re.compile(r"[a-z0-9][a-z0-9._-]*")
 SHA_RE = re.compile(r"[0-9a-f]{64}")
-BASELINE_ORDER = {
-    "x86-64-v1": 1,
-    "x86-64-v2": 2,
-    "x86-64-v3": 3,
-    "x86-64-v4": 4,
-}
 MAX_RESPONSE = 4 * 1024 * 1024
 
 
@@ -184,74 +180,10 @@ def require_name(package: str) -> str:
 
 
 def parse_target() -> dict:
-    out = run(["asmory", "target"]).stdout
-    target: dict[str, object] = {"features": set()}
-
-    in_features = False
-    for raw in out.splitlines():
-        line = raw.rstrip()
-        stripped = line.strip()
-
-        if stripped == "features":
-            in_features = True
-            continue
-
-        if stripped in ("Target", "ISA"):
-            in_features = False
-            continue
-
-        m = re.match(r"^\s{2}(arch|os|object|abi|baseline)\s+(\S+)\s*$", line)
-        if m:
-            target[m.group(1)] = m.group(2)
-            continue
-
-        if in_features:
-            m = re.match(r"^\s{4}([A-Za-z0-9._+-]+)\s+(yes|no)\s*$", line)
-            if m and m.group(2) == "yes":
-                target["features"].add(m.group(1).lower())
-
-    required = ("arch", "os", "object", "abi", "baseline")
-    missing = [key for key in required if key not in target]
-    if missing:
-        raise RemoteError(
-            "cannot parse local Asmory host target: " + ", ".join(missing)
-        )
-
-    return target
-
-
-def compatible_variant(variant: dict, host: dict) -> tuple[bool, str]:
-    target = variant.get("target")
-    if not isinstance(target, dict):
-        return False, "Variant target metadata missing"
-
-    for key in ("arch", "os", "object", "abi"):
-        value = target.get(key)
-        if value != host.get(key):
-            return False, f"{key} requires {value}, host is {host.get(key)}"
-
-    isa = target.get("isa")
-    if not isinstance(isa, dict):
-        return False, "Variant ISA metadata missing"
-
-    baseline = isa.get("baseline")
-    host_baseline = host.get("baseline")
-    if baseline in BASELINE_ORDER and host_baseline in BASELINE_ORDER:
-        if BASELINE_ORDER[host_baseline] < BASELINE_ORDER[baseline]:
-            return False, f"baseline requires {baseline}, host is {host_baseline}"
-    elif baseline != host_baseline:
-        return False, f"baseline requires {baseline}, host is {host_baseline}"
-
-    required = isa.get("required", [])
-    if not isinstance(required, list) or not all(isinstance(x, str) for x in required):
-        return False, "Variant required ISA list invalid"
-
-    features = host["features"]
-    missing = sorted({x.lower() for x in required} - features)
-    if missing:
-        return False, "missing ISA: " + ", ".join(missing)
-
-    return True, "compatible"
+    try:
+        return native_host_facts()
+    except MachineError as exc:
+        raise RemoteError(str(exc)) from exc
 
 
 def version_key(version: str):

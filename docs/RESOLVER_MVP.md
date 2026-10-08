@@ -13,6 +13,7 @@ generated Assembly metadata include
 Assembly CLI
         ↓
 CPUID/XGETBV Machine Contract check
+  + native GNU as version/target check
         ↓
 resolve / explain / audit
 ```
@@ -69,6 +70,11 @@ Those become the next milestones.
 Registry metadata drives CLI Artifact identity.
 Host compatibility is checked before selection.
 Source-preferred and leaf-first defaults are explicit.
+
+Machine filtering now uses a shared model in both remote resolvers. The
+bootstrap Assembly resolver calls the same native GAS gate using fields generated
+from the exact Release contract. Unsupported or unavailable assemblers are
+rejections even when CPU ISA and semantic matching pass.
 Exact Artifact identity is not presented as a safety verdict.
 Experimental Variant status does not silently outrank the stable Variant.
 ```

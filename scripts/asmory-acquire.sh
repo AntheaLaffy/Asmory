@@ -44,8 +44,9 @@ command -v curl >/dev/null 2>&1 || {
   echo "acquire: bootstrap transport requires curl" >&2
   exit 10
 }
-command -v sha256sum >/dev/null 2>&1 || {
-  echo "acquire: bootstrap verification requires sha256sum" >&2
+verifier="$(dirname -- "${BASH_SOURCE[0]}")/asmory-sha256"
+[[ -x "$verifier" ]] || {
+  echo "acquire: native SHA-256 companion unavailable" >&2
   exit 10
 }
 
@@ -78,7 +79,7 @@ curl \
   --output "$tmp" \
   "$url"
 
-actual="$(sha256sum "$tmp" | awk '{print $1}')"
+actual="$("$verifier" "$tmp")"
 
 if [[ "$actual" != "$expected" ]]; then
   echo "acquire: SHA-256 mismatch" >&2

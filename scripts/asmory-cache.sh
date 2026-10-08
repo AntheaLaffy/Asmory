@@ -26,8 +26,9 @@ expected="$3"
   exit 2
 }
 
-command -v sha256sum >/dev/null 2>&1 || {
-  echo "cache: bootstrap verification requires sha256sum" >&2
+verifier="$(dirname -- "${BASH_SOURCE[0]}")/asmory-sha256"
+[[ -x "$verifier" ]] || {
+  echo "cache: native SHA-256 companion unavailable" >&2
   exit 10
 }
 command -v asmory-acquire >/dev/null 2>&1 || {
@@ -54,7 +55,7 @@ verify_object() {
   local path="$1"
   [[ -f "$path" && ! -L "$path" ]] || return 1
   local actual
-  actual="$(sha256sum "$path" | awk '{print $1}')"
+  actual="$("$verifier" "$path")" || return 1
   [[ "$actual" == "$expected" ]]
 }
 

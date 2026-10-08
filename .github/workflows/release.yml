@@ -33,10 +33,9 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p dist/asmory-linux-x86_64
-          cp build/asmory dist/asmory-linux-x86_64/
-          cp build/asmory-registry dist/asmory-linux-x86_64/
-          cp README.md LICENSE dist/asmory-linux-x86_64/
+          make release-bundle
+          mkdir -p dist
+          cp -a build/release/asmory-linux-x86_64 dist/
           tar -C dist -czf "dist/asmory-${GITHUB_REF_NAME}-linux-x86_64.tar.gz" asmory-linux-x86_64
           (cd dist && sha256sum "asmory-${GITHUB_REF_NAME}-linux-x86_64.tar.gz" > SHA256SUMS)
 

@@ -56,3 +56,9 @@ The registry stores the expanded canonical representation.
 8. Local dependency state never changes dependency identity implicitly.
 9. Artifact hashes identify content; they do not imply safety.
 10. User-facing shorthand must lower to an explicit normalized resolver request.
+
+## Executable build metadata
+
+The implemented GAS adapter consumes `[build]`, `[link]` and `[exports]`.
+Project defaults, Package/Variant source bindings, export validation and offline
+lockfile behavior are defined in [BUILD.md](BUILD.md).

@@ -86,6 +86,8 @@ ISA baseline legality
     ↓
 required ISA feature legality
     ↓
+export calling convention / supported toolchain / minimum assembler version
+    ↓
 compatible Variant selection
     ↓
 exact Artifact SHA-256
@@ -96,6 +98,14 @@ existing cache/acquire/materialize/add transaction
 The client asks the native Assembly CLI for `asmory target`, so host ISA
 selection continues to use Asmory's CPUID/XGETBV logic rather than trusting
 generic platform strings for AVX-family usability.
+
+The shared Machine Contract model also checks that exports use the target ABI.
+The native `asmory-toolchain-check` probes GAS without a shell, compares numeric
+versions and requires an x86-64 Linux/bare-ELF assembler. Missing or malformed
+toolchain declarations, unsupported adapters/syntax and older compilers reject
+the candidate before Variant ordering or installation. Probe output is bounded;
+the owning process terminates and reaps a probe that exceeds five seconds.
+The initial supported source adapter is GAS with AT&T/Intel syntax.
 
 ## Transport
 

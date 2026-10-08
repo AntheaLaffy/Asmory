@@ -104,3 +104,10 @@ Fork staging uses `.asmory/.fork/` and local publication candidates use
 
 Forked Package source itself lives under `packages/<name>/` and is ordinary
 Git-visible repository source.
+
+## Build generations
+
+`.asmory/build/<name>/` stores generated objects, deterministic libraries/static
+executables and build records. It is ignored runtime state. `current` atomically
+selects a complete successful generation; failed builds preserve the prior
+selection. See [BUILD.md](BUILD.md).

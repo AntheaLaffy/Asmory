@@ -34,7 +34,11 @@ one object.
 ## Cache hits are verified
 
 The digest-shaped path is never trusted by itself. Every hit is re-hashed and
-must equal the resolver-provided Artifact SHA-256.
+must equal the resolver-provided Artifact SHA-256. Hashing uses the sibling
+syscall-only `asmory-sha256` verifier. Missing verifiers abort the operation;
+read/hash failures refuse reuse or publication without a fallback to external
+hash tools. Cache orchestration remains transitional Bash until native directory
+and transactional publication primitives cover this lifecycle.
 
 A corrupt object is a hard error. Draft 0.1 deliberately refuses silent repair
 or replacement so corruption remains observable.

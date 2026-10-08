@@ -34,6 +34,7 @@
 - [x] `asmory init`
 - [x] `asmory add` first leaf dependency MVP
 - [x] bootstrap target/Variant compatibility resolution
+- [x] shared remote/Provider checks include native GAS version/target probes
 - [x] project workspace + empty lockfile v1 foundation
 - [x] resolved dependency records in lockfile v1
 
@@ -127,11 +128,18 @@
 
 ## M4 — Build/link pipeline
 
-- [ ] GAS/NASM/LLVM-MC adapters
-- [ ] object-level dependency graph
-- [ ] section GC defaults
-- [ ] archive/static library support
-- [ ] symbol/export contract validation
+- [x] offline locked-source GAS adapter (Linux x86-64)
+- [ ] NASM/LLVM-MC adapters
+- [x] source/object dependency graph in build records
+- [x] executable section GC defaults
+- [x] deterministic archive/static library support
+- [x] native ELF symbol/section/export contract validation
+- [x] transactional successful-generation publication
+- [x] reusable syscall-only process/file/ELF primitives
+- [x] reusable streaming Assembly SHA-256 + native build/acquisition/cache file verification
+- [ ] Assembly TOML planner and lifecycle migration
+
+See [the build/link MVP](BUILD_LINK_MVP.md).
 
 ## M5 — Publish/security
 

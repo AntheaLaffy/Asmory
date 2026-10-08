@@ -14,17 +14,13 @@ import sys
 import tomllib
 from urllib.parse import quote, urlencode, urlsplit
 
+from machine_model import MachineError, compatible_variant, host_facts as native_host_facts
+
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 from semantic_model import canonical_semantics, match  # noqa: E402
 
 CAPABILITY_RE = re.compile(r"[A-Za-z0-9][A-Za-z0-9._-]{0,255}")
 SHA_RE = re.compile(r"[0-9a-f]{64}")
-BASELINE_ORDER = {
-    "x86-64-v1": 1,
-    "x86-64-v2": 2,
-    "x86-64-v3": 3,
-    "x86-64-v4": 4,
-}
 MAX_RESPONSE = 8 * 1024 * 1024
 
 
@@ -260,106 +256,10 @@ def exact_prefilter_facets(canonical: dict) -> list[str]:
 
 
 def parse_target() -> dict:
-    out = run(["asmory", "target"]).stdout
-    target: dict[str, object] = {"features": set()}
-
-    in_features = False
-
-    for raw in out.splitlines():
-        line = raw.rstrip()
-        stripped = line.strip()
-
-        if stripped == "features":
-            in_features = True
-            continue
-
-        if stripped in ("Target", "ISA"):
-            in_features = False
-            continue
-
-        m = re.match(
-            r"^\s{2}(arch|os|object|abi|baseline)\s+(\S+)\s*$",
-            line,
-        )
-        if m:
-            target[m.group(1)] = m.group(2)
-            continue
-
-        if in_features:
-            m = re.match(
-                r"^\s{4}([A-Za-z0-9._+-]+)\s+(yes|no)\s*$",
-                line,
-            )
-            if m and m.group(2) == "yes":
-                target["features"].add(m.group(1).lower())
-
-    missing = [
-        key
-        for key in ("arch", "os", "object", "abi", "baseline")
-        if key not in target
-    ]
-
-    if missing:
-        raise SemanticResolverError(
-            "cannot parse local Asmory host target: "
-            + ", ".join(missing)
-        )
-
-    return target
-
-
-def compatible_variant(
-    variant: dict,
-    host: dict,
-) -> tuple[bool, str]:
-    target = variant.get("target")
-    if not isinstance(target, dict):
-        return False, "Variant target metadata missing"
-
-    for key in ("arch", "os", "object", "abi"):
-        required = target.get(key)
-        actual = host.get(key)
-        if required != actual:
-            return (
-                False,
-                f"{key} requires {required}, host is {actual}",
-            )
-
-    isa = target.get("isa")
-    if not isinstance(isa, dict):
-        return False, "Variant ISA metadata missing"
-
-    baseline = isa.get("baseline")
-    host_baseline = host.get("baseline")
-
-    if baseline in BASELINE_ORDER and host_baseline in BASELINE_ORDER:
-        if BASELINE_ORDER[host_baseline] < BASELINE_ORDER[baseline]:
-            return (
-                False,
-                f"baseline requires {baseline}, host is {host_baseline}",
-            )
-    elif baseline != host_baseline:
-        return (
-            False,
-            f"baseline requires {baseline}, host is {host_baseline}",
-        )
-
-    required = isa.get("required", [])
-    if not (
-        isinstance(required, list)
-        and all(isinstance(x, str) for x in required)
-    ):
-        return False, "Variant required ISA list invalid"
-
-    features = host["features"]
-    missing = sorted(
-        {x.lower() for x in required} - features
-    )
-
-    if missing:
-        return False, "missing ISA: " + ", ".join(missing)
-
-    return True, "compatible"
+    try:
+        return native_host_facts()
+    except MachineError as exc:
+        raise SemanticResolverError(str(exc)) from exc
 
 
 def select_variant(

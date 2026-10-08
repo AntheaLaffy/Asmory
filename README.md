@@ -257,11 +257,15 @@ See [spec/REGISTRY_MODEL.md](spec/REGISTRY_MODEL.md) and
 
 ## Working today
 
-The repository already contains two static Linux x86-64 ELF programs written
-in Assembly:
+The repository exposes two static Linux x86-64 Assembly entry points:
 
 - `asmory-registry` — syscall-only HTTP registry prototype;
 - `asmory` — package-manager CLI bootstrap.
+
+Reusable syscall-only native helpers provide process execution, ELF validation,
+toolchain checks and streaming SHA-256. Acquisition/cache verification and build
+file hashes use the native SHA-256 companion.
+See [the native interfaces](native/README.md) for their contracts.
 
 Build everything:
 
@@ -316,6 +320,7 @@ asmory acquire simd-dot ./simd-dot-0.1.0.tar.gz
 asmory cache simd-dot
 asmory add simd-dot
 asmory status
+asmory build
 asmory restore simd-dot
 asmory patch simd-dot
 asmory reapply simd-dot
@@ -346,6 +351,17 @@ Variants and Artifacts remain independent. Source Releases may record
 remains the Artifact SHA-256.
 
 See [`spec/REPOSITORY_WORKSPACE.md`](spec/REPOSITORY_WORKSPACE.md).
+
+## Offline build and link
+
+`asmory build` compiles project sources and locked local dependencies with GNU
+as, validates ELF exports and links a static executable with section GC. Builds
+work offline and record Exact/Modified source identity without changing the lock.
+`asmory build --package simd-dot` builds a repository member as a deterministic
+static library. Failed builds preserve the previous successful output.
+
+See [the build/link MVP](docs/BUILD_LINK_MVP.md) for commands and
+[the build contract](spec/BUILD.md) for source, Variant and toolchain rules.
 
 ## Authenticated publication staging
 

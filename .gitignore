@@ -1,4 +1,7 @@
 /build/
+/.asmory/build/
+/.asmory/workspace.lock
+/.asmory/.gitignore
 *.o
 *.a
 *.so

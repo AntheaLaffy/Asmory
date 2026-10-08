@@ -16,7 +16,7 @@ NAME_RE = re.compile(r"[a-z0-9][a-z0-9._-]*")
 VERSION_RE = re.compile(r"[0-9]+(?:\.[0-9]+){2}(?:[-+][0-9A-Za-z.-]+)?")
 GIT_SHA_RE = re.compile(r"[0-9a-f]{40}")
 INCLUDE_PATTERNS = (
-    re.compile(r'^\s*\.include\s+"([^"]+)"'),
+    re.compile(r'^\s*\.(?:include|incbin)\s+"([^"]+)"'),
     re.compile(r'^\s*%include\s+"([^"]+)"', re.IGNORECASE),
     re.compile(r'^\s*#\s*include\s+"([^"]+)"'),
 )
@@ -118,10 +118,15 @@ def scan_literal_includes(package_root: Path) -> None:
             continue
         for lineno, line in enumerate(text.splitlines(), 1):
             include = None
-            for pattern in INCLUDE_PATTERNS:
+            include_root = path.parent
+            for index, pattern in enumerate(INCLUDE_PATTERNS):
                 m = pattern.match(line)
                 if m:
                     include = m.group(1)
+                    if index == 0:
+                        # GAS resolves .include/.incbin from its cwd, which is
+                        # the Package root in the build adapter.
+                        include_root = package_root
                     break
             if include is None:
                 continue
@@ -130,7 +135,7 @@ def scan_literal_includes(package_root: Path) -> None:
                 raise WorkspaceError(
                     f"{path}:{lineno}: absolute include escapes package boundary: {include!r}"
                 )
-            candidate = (path.parent / include).resolve()
+            candidate = (include_root / include).resolve()
             try:
                 candidate.relative_to(rr)
             except ValueError as exc:
