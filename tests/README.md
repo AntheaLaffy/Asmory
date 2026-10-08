@@ -10,7 +10,7 @@ make cli-smoke
 ```
 
 `make check` includes model checks, project/repository workspace tests and
-`make build-smoke`, toolchain tests.
+`make build-smoke`, toolchain and multi-dependency tests.
 Build tests execute linked programs and consume generated
 static libraries, covering offline source identity and failed-build preservation.
 `make sha256-smoke` checks the native hash primitive against fixed vectors and

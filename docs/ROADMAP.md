@@ -56,6 +56,8 @@
 - [x] safe project-local materialization
 - [x] archive traversal/link/special-file rejection
 - [x] transactional first dependency manifest + lockfile update
+- [x] multiple independent direct leaf additions preserve configuration and state
+- [x] native exclusive byte-range metadata editing
 - [x] offline add from verified cache
 - [x] computed Exact / Modified status
 - [x] deterministic materialized-tree fingerprint v1

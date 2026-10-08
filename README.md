@@ -263,8 +263,8 @@ The repository exposes two static Linux x86-64 Assembly entry points:
 - `asmory` — package-manager CLI bootstrap.
 
 Reusable syscall-only native helpers provide process execution, ELF validation,
-toolchain checks and streaming SHA-256. Acquisition/cache verification and build
-file hashes use the native SHA-256 companion.
+toolchain checks, metadata byte editing and streaming SHA-256. Acquisition,
+cache verification and build file hashes use the native SHA-256 companion.
 See [the native interfaces](native/README.md) for their contracts.
 
 Build everything:
@@ -340,6 +340,11 @@ Install the locally built CLI:
 ```bash
 make install-user
 ```
+
+`asmory add` supports several independent direct dependencies while preserving
+project configuration, existing lock records and local Modified/vendor source.
+Resolver selection checks the available GAS version/target as part of the hard
+Machine Contract. See [the add workflow](docs/ADD_MVP.md).
 
 ## Repository workspace model
 

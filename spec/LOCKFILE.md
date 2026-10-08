@@ -46,3 +46,9 @@ Artifact chosen by the resolver.
 
 > Convenience is a property of input syntax. Precision is a property of the
 > internal model.
+
+Each additional direct dependency contributes one unique `[[dependency]]` record;
+`dependency_count` must equal the record count. Installation preserves existing
+records rather than reconstructing their resolution or local state. Dotted
+Package names are quoted in TOML dependency keys so they remain one Package
+identity. Vendor transitions modify only the selected dependency block.

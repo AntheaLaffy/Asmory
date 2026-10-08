@@ -22,9 +22,16 @@ resolve machine legality
 
 The result is visible writable source under `.asmory/deps/simd-dot/`.
 
-The MVP refuses to overwrite an existing dependency, extract unsafe members,
-rewrite a non-empty bootstrap workspace, or mutate manifest/lockfile when
-materialization fails. Workspace mutations are serialized with a local lock.
+The installer supports multiple independent direct leaf dependencies. It preserves
+project configuration and all earlier lock records when appending a Package,
+including local Modified source and project-owned vendor state. Ordinary
+`[dependencies]` tables, inline tables, dotted Package names and a predeclared
+exact selected Release are covered by the regression suite.
+
+It refuses to overwrite an existing dependency, extract unsafe members, accept
+unsupported/unsatisfied intent, or change manifest/lockfile when acquisition,
+materialization or metadata validation fails. Workspace mutations are serialized
+with a local lock, and a concurrent metadata edit is preserved.
 
 Once the exact Artifact is present and verifies in the global cache, another
 project can `asmory add simd-dot` while the Registry is offline.
@@ -35,3 +42,10 @@ This is the first executable form of:
 
 The local-state lifecycle now computes Exact versus Modified from the materialized
 tree and implements restore as the first explicit state transition.
+
+Metadata edits are range-checked and written by the syscall-only
+`asmory-text-splice` tool, using exclusive destination creation. The transitional
+Python model helper validates TOML and plans edits while retaining unrelated
+fields and source text. Replace it when Assembly TOML parsing and structural
+model validation can pass `make multi-add-smoke`; file I/O and numeric range
+validation already have reusable native implementations.

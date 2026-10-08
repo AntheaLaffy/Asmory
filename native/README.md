@@ -42,7 +42,10 @@ semantics. See [the build contract](../spec/BUILD.md) for their consumers and
 transitional planner retirement conditions.
 
 `asmory-toolchain-check` uses capture/text primitives to validate GNU as version
-and x86-64 ELF target before source selection.
+and x86-64 ELF target before source selection. `asmory-text-splice` uses mapped
+inputs, checked decimal byte ranges and exclusive/fsynced output writes for
+metadata editing. The TOML planner remains transitional; see
+[ADD_MVP.md](../docs/ADD_MVP.md) for its removal gate.
 
 SHA-256 follows [FIPS 180-4](https://doi.org/10.6028/NIST.FIPS.180-4), using
 baseline x86-64 integer instructions. Contexts and outputs need no alignment;

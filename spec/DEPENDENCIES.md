@@ -196,8 +196,12 @@ resolver identity
 
 The local copy is independent and writable. The cache object is not.
 
-The first MVP accepts one direct leaf dependency so state and reproducibility
-rules remain explicit before multi-dependency editing is added.
+The executable installer supports multiple independent direct leaf dependencies.
+Adding one preserves existing manifest configuration and exact lock records,
+including Modified and vendored dependencies. It never implicitly updates an
+already resolved dependency. Named Packages use `*` intent by default; a
+predeclared exact selected Release is also accepted. Unsupported or unsatisfied
+version intent fails before acquisition rather than being ignored.
 
 ## AI-assisted dependencies
 

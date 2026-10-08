@@ -13,6 +13,8 @@ import sys
 import tempfile
 import tomllib
 
+from workspace_model import WorkspaceModelError, assignment, changed_text, dependency_block, sections, set_dependency
+
 
 class VendorError(RuntimeError):
     pass
@@ -119,17 +121,12 @@ def remove_path(path: Path) -> None:
 
 
 def rewrite_manifest(text: str, package: str, vendor_path: str) -> str:
-    pattern = re.compile(
-        rf"(?m)^{re.escape(package)}\s*=\s*\"\*\"\s*$"
-    )
-    replacement = f'{package} = {{ path = "{vendor_path}" }}'
-    result, count = pattern.subn(replacement, text, count=1)
-
-    if count != 1:
-        raise VendorError(
-            f"{package}: expected canonical registry dependency intent in asm.toml"
-        )
-
+    edits = set_dependency(text, package, '{ path = "' + vendor_path + '" }', replace=True)
+    result = changed_text(text, edits)
+    before = tomllib.loads(text)
+    before["dependencies"][package] = {"path": vendor_path}
+    if tomllib.loads(result) != before:
+        raise VendorError("vendor manifest edit would change unrelated intent")
     return result
 
 
@@ -162,30 +159,25 @@ def rewrite_lock(
     if "vendor_path" in dep or "vendor_origin_tree_sha256" in dep:
         raise VendorError(f"{package}: stale vendor metadata already exists")
 
-    marker = f'materialized_path = ".asmory/deps/{package}"'
-    if text.count(marker) != 1:
-        raise VendorError(f"{package}: cannot locate canonical lockfile path field")
-
-    source_marker = 'source_kind = "registry"'
-
-    if text.count(source_marker) == 1:
-        text = text.replace(source_marker, 'source_kind = "vendor"', 1)
-        insertion = (
-            marker
-            + f'\nvendor_path = "{vendor_path}"'
-            + f'\nvendor_origin_tree_sha256 = "{origin_tree}"'
-        )
-    elif text.count(source_marker) == 0:
-        insertion = (
-            marker
-            + '\nsource_kind = "vendor"'
-            + f'\nvendor_path = "{vendor_path}"'
-            + f'\nvendor_origin_tree_sha256 = "{origin_tree}"'
-        )
+    start, end = dependency_block(text, package)
+    block = text[start:end]
+    headers = sections(block)
+    root_start = headers[0][3]
+    root_end = headers[1][2] if len(headers) > 1 else len(block)
+    edits = []
+    fields = f'vendor_path = "{vendor_path}"\nvendor_origin_tree_sha256 = "{origin_tree}"\n'
+    if "source_kind" in dep:
+        first, last = assignment(block[root_start:root_end], "source_kind")
+        edits.append((root_start + first, root_start + last, 'source_kind = "vendor"\n'))
     else:
-        raise VendorError(f"{package}: ambiguous registry source metadata")
-
-    return text.replace(marker, insertion, 1)
+        fields = 'source_kind = "vendor"\n' + fields
+    prefix = "" if block[root_end - 1] == "\n" else "\n"
+    edits.append((root_end, root_end, prefix + fields))
+    result = text[:start] + changed_text(block, edits) + text[end:]
+    dep.update(source_kind="vendor", vendor_path=vendor_path, vendor_origin_tree_sha256=origin_tree)
+    if tomllib.loads(result) != parsed:
+        raise VendorError("vendor lock edit would change unrelated resolution")
+    return result
 
 
 def vendor_dependency(root: Path, package: str) -> int:
@@ -216,7 +208,7 @@ def vendor_dependency(root: Path, package: str) -> int:
 
     manifest = load_manifest(root)
     deps = manifest.get("dependencies", {})
-    if not isinstance(deps, dict) or deps.get(package) != "*":
+    if not isinstance(deps, dict) or deps.get(package) != dep.get("intent", "*"):
         raise VendorError(
             f"{package}: manifest intent is not the canonical registry dependency"
         )
@@ -367,7 +359,7 @@ def main() -> int:
     try:
         root = workspace_root()
         return vendor_dependency(root, args.package)
-    except (VendorError, OSError, tomllib.TOMLDecodeError) as exc:
+    except (VendorError, WorkspaceModelError, OSError, tomllib.TOMLDecodeError) as exc:
         print(f"vendor: {exc}", file=sys.stderr)
         return 20
 
