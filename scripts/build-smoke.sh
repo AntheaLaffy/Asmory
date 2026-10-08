@@ -109,7 +109,7 @@ unused_function:
 ASM
 "$BIN" build
 .asmory/build/project/current/demo
-if nm .asmory/build/project/current/demo | rg 'unused_function' >/dev/null; then
+if nm .asmory/build/project/current/demo | grep -q 'unused_function' >/dev/null; then
   echo 'build-smoke: section GC did not remove an unused function' >&2
   exit 1
 fi
@@ -129,24 +129,24 @@ cp "$tmp/main.S" "$main_source"
 cp asm.toml "$tmp/project.toml"
 printf '\nentry = "missing_entry"\n' >>asm.toml
 expect_failure "$BIN" build
-rg -q 'entry must be' "$tmp/failure.out"
+grep -q 'entry must be' "$tmp/failure.out"
 cp "$tmp/project.toml" asm.toml
 printf '\n.include "../outside.inc"\n' >>"$main_source"
 expect_failure "$BIN" build
-rg -q 'inside its package' "$tmp/failure.out"
+grep -q 'inside its package' "$tmp/failure.out"
 cp "$tmp/main.S" "$main_source"
 printf '\n.include "include/link.inc"\n' >>"$main_source"
 ln -s "$tmp/main.S" include/link.inc
 expect_failure "$BIN" build
-rg -q 'symlinked' "$tmp/failure.out"
+grep -q 'symlinked' "$tmp/failure.out"
 cp "$tmp/main.S" "$main_source"
 printf '\n[toolchain]\nassembler = "gas"\nmin_version = "999.0"\n' >>asm.toml
 expect_failure "$BIN" build
-rg -q 'requires 999.0' "$tmp/failure.out"
+grep -q 'requires 999.0' "$tmp/failure.out"
 cp "$tmp/project.toml" asm.toml
 printf '\n[target]\narch = "aarch64"\n' >>asm.toml
 expect_failure "$BIN" build
-rg -q 'arch requires' "$tmp/failure.out"
+grep -q 'arch requires' "$tmp/failure.out"
 cp "$tmp/project.toml" asm.toml
 [[ "$(readlink .asmory/build/project/current)" == "$generation" ]]
 [[ "$(sha256sum .asmory/build/project/current/demo)" == "$hash" ]]
@@ -179,7 +179,7 @@ ASMORY_TEST_REAL_AS="$(command -v as)"
 export ASMORY_TEST_REAL_AS
 export ASMORY_TEST_ACTIVE_INPUT="$PWD/src/main ; \$literal.S"
 expect_failure env PATH="$tmp/assembler-shim:$PATH" "$BIN" build
-rg -q 'input changed during compilation' "$tmp/failure.out"
+grep -q 'input changed during compilation' "$tmp/failure.out"
 cp "$tmp/main.S" "$main_source"
 unset ASMORY_TEST_REAL_AS ASMORY_TEST_ACTIVE_INPUT
 [[ "$(readlink .asmory/build/project/current)" == "$generation" ]]
@@ -258,11 +258,11 @@ ld -static -z noexecstack --gc-sections "$tmp/consumer.o" "$archive" -o "$tmp/co
 cp src/leaf.S "$tmp/leaf.S"
 printf '\n.global undeclared\n.section .text.undeclared,"ax"\nundeclared: ret\n' >>src/leaf.S
 expect_failure "$BIN" build
-rg -q 'export symbol/section' "$tmp/failure.out"
+grep -q 'export symbol/section' "$tmp/failure.out"
 cp "$tmp/leaf.S" src/leaf.S
 printf '\n.section .text.external,"ax"\n.hidden external_call\n.global external_call\nexternal_call: jmp undeclared_dependency\n' >>src/leaf.S
 expect_failure "$BIN" build
-rg -q 'undefined external' "$tmp/failure.out"
+grep -q 'undefined external' "$tmp/failure.out"
 [[ "$(sha256sum "$archive")" == "$archive_hash" ]]
 
 echo '== repository package and explicit Variant source binding =='
@@ -344,21 +344,21 @@ section = ".text.alternative"
 calling_convention = "sysv64"
 TOML
 "$BIN" build --package leaf >/dev/null
-nm .asmory/build/leaf/current/libleaf.a | rg ' T leaf$' >/dev/null
+nm .asmory/build/leaf/current/libleaf.a | grep -q ' T leaf$' >/dev/null
 "$BIN" build --package leaf --variant alternative >/dev/null
-nm .asmory/build/leaf/current/libleaf.a | rg ' T alternative$' >/dev/null
+nm .asmory/build/leaf/current/libleaf.a | grep -q ' T alternative$' >/dev/null
 expect_failure "$BIN" build --package leaf --variant unknown
-rg -q 'no source binding' "$tmp/failure.out"
+grep -q 'no source binding' "$tmp/failure.out"
 
 echo '== inherited source constraints cannot be weakened by Variant metadata =='
 cp packages/leaf/asm.toml "$tmp/package.toml"
 sed -i 's/min_version = "2.40"/min_version = "999.0"/' packages/leaf/asm.toml
 expect_failure "$BIN" build --package leaf
-rg -q 'requires 999.0' "$tmp/failure.out"
+grep -q 'requires 999.0' "$tmp/failure.out"
 cp "$tmp/package.toml" packages/leaf/asm.toml
 sed -i 's/required = \[\]/required = ["asmory-unavailable-feature"]/' packages/leaf/asm.toml
 expect_failure "$BIN" build --package leaf
-rg -q 'missing host ISA' "$tmp/failure.out"
+grep -q 'missing host ISA' "$tmp/failure.out"
 cp "$tmp/package.toml" packages/leaf/asm.toml
 
 echo '== locked offline dependency, Modified provenance and vendor =='
