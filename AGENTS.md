@@ -61,8 +61,10 @@ ELF，核心入口不依赖 libc；部分包管理和 Registry 写入流程仍�
 
 ## 验证入口
 
-当前工具链：Linux x86-64、GNU binutils、Make、Bash、Python 3.11+、Git、curl 和常用
-归档 / coreutils 工具。这些是现阶段的验证依赖，随汇编替代能力完善逐步迁移。
+当前工具链：Linux x86-64、GNU binutils、Make、Bash、Python 3.11+、Git、curl、
+ripgrep 和常用归档 / coreutils 工具。这些是现阶段的验证依赖，随汇编替代能力
+完善逐步迁移；缺少依赖时在构建 / CI 入口安装并在本节声明，不要以「减少依赖」
+为由改写验证断言。
 优先运行能覆盖本次行为的现有入口。
 
 ```sh
