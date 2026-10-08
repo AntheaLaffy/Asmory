@@ -50,6 +50,9 @@ Re-create that configuration in a fresh clone with:
 
 ```bash
 git remote add origin git@github.com:AntheaLaffy/Asmory.git
+# Setting any push URL overrides the default push target, so list both
+explicitly instead of only appending the organization repository.
+git remote set-url --push origin git@github.com:AntheaLaffy/Asmory.git
 git remote set-url --push --add origin git@github.com:Asmory/Asmory.git
 git remote add upstream git@github.com:Asmory/Asmory.git
 git remote -v
@@ -58,6 +61,14 @@ git remote -v
 # origin   git@github.com:Asmory/Asmory.git (push)
 # upstream git@github.com:Asmory/Asmory.git (fetch)
 # upstream git@github.com:Asmory/Asmory.git (push)
+```
+
+A single `git push origin main` reports one `To ...` block per push URL; verify
+both received the commit before treating the push as done:
+
+```bash
+git ls-remote git@github.com:AntheaLaffy/Asmory.git refs/heads/main
+git ls-remote git@github.com:Asmory/Asmory.git refs/heads/main
 ```
 
 `git fetch` still talks to the personal repository, so both remotes can be
