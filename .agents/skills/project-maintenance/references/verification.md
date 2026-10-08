@@ -34,14 +34,14 @@ python3 <skill-dir>/scripts/maintenance_state.py record --root . --reviewed
 python3 <skill-dir>/scripts/maintenance_state.py check --root .
 ```
 
-- 扫描 Git 跟踪文件及未被忽略的新增文件，比较实际内容哈希；检测修改、增删、重命名及地图本身的变化。模式或时间戳相同的内容修改仍会触发。
-- tracked fixture、lockfile、配置与文档也在范围内。`CODEMAP.md`、`codemap.md` 和 `*.analysis.md` 在报告中单列；记录文件自身不进入指纹。
+- 扫描 Git 跟踪文件及未被忽略的新增文件，比较实际内容哈希；检测修改、增删和重命名。模式或时间戳相同的内容修改仍会触发。
+- tracked fixture、lockfile、配置与文档也在范围内；全部实体统一跟踪，记录文件自身不进入指纹。
 - 默认排除缓存/依赖目录，以及根目录的 `build/`、`dist/`、`out/`、`coverage/`。若项目把真实源码放在这些位置，通过 `--include-generated` 纳入；该选择会记录在范围中。
 - 大模型、数据集或受项目明确排除的产物，可使用根目录相对的 `--exclude 'weights/**'` 等模式；目录模式如 `datasets/` 排除其子树。模式影响扫描范围，不能拿它掩盖未完成维护。设置会保存在审查记录中，后续检查复用；显式重新提供模式会替换已保存的自定义排除。
 - 例如：`inspect --root . --exclude 'weights/**'`；确认范围后以相同选项运行 `record --reviewed`。恢复自定义排除为空使用 `--clear-excludes`。修改排除范围会要求新的审查记录。
 - 符号链接只记录链接目标，不跟随读取外部文件；子模块只记录 checkout 状态。报告中的 `separate_checkouts` 必须在其真实源码树单独审查和检查，链接本身不变不代表引擎内容不变。
 - `record` 只原子替换 `.project-maintenance/state.json`。若使用 CI，可把这份记录交给 Git；后续在同一路径更新，不生成每次任务的副本。
 - `inspect` 只读并返回清单。`check` 返回 `0` 表示该范围与已审查指纹一致，`1` 表示需审查或尚无记录，`2` 表示仓库、读取或记录错误；错误不能当作干净状态。
-- 一致的指纹只证明“之后没有新的受监测文件变化”，不证明地图语义、死代码判断或产品正确性。实际调用者和有意义的验证仍由 agent 核对。
+- 一致的指纹只证明“之后没有新的受监测文件变化”，不证明文档准确性、死代码判断或产品正确性。实际调用者和有意义的验证仍由 agent 核对。
 
 在已有项目中接入检查脚本时使用该 skill 的实际路径或项目自己的固定入口。不要假定其他机器安装在同一个 home 路径，也不要把 skill 私有源码大量复制进项目。

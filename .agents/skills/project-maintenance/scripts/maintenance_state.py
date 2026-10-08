@@ -16,7 +16,7 @@ import tempfile
 
 
 STATE_PATH = Path(".project-maintenance/state.json")
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2
 CACHE_DIRS = {
     ".git", ".hg", ".svn", "node_modules", "target", ".venv", "venv",
     "__pycache__", ".pytest_cache", ".mypy_cache", ".ruff_cache", ".cache",
@@ -47,12 +47,11 @@ def load_state(root: Path) -> dict | None:
     state = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(state, dict) or state.get("schema_version") != SCHEMA_VERSION:
         raise ValueError("Unsupported or malformed maintenance state")
-    for field in ("files", "maps"):
-        entries = state.get(field)
-        if not isinstance(entries, dict) or not all(
-            isinstance(k, str) and isinstance(v, str) for k, v in entries.items()
-        ):
-            raise ValueError(f"Malformed state field: {field}")
+    entries = state.get("files")
+    if not isinstance(entries, dict) or not all(
+        isinstance(k, str) and isinstance(v, str) for k, v in entries.items()
+    ):
+        raise ValueError("Malformed state field: files")
     if not isinstance(state.get("excludes"), list) or not all(
         isinstance(p, str) for p in state["excludes"]
     ) or not isinstance(state.get("include_generated"), bool):
@@ -112,7 +111,7 @@ def fingerprint(path: Path) -> tuple[str, dict | None]:
 def inventory(root: Path, patterns: list[str], include_generated: bool) -> dict:
     output = git(root, "ls-files", "-z", "--cached", "--others", "--exclude-standard")
     names = sorted({os.fsdecode(name) for name in output.split(b"\0") if name})
-    files, maps, separate = {}, {}, []
+    files, separate = {}, []
     for name in names:
         if excluded(name, patterns, include_generated):
             continue
@@ -120,13 +119,10 @@ def inventory(root: Path, patterns: list[str], include_generated: bool) -> dict:
         if not os.path.lexists(path):
             continue  # Tracked deletions are absent from the current content manifest.
         value, checkout = fingerprint(path)
-        target = maps if path.name in {"CODEMAP.md", "codemap.md"} or (
-            path.name.endswith(".analysis.md")
-        ) else files
-        target[name] = value
+        files[name] = value
         if checkout:
             separate.append({"path": name, **checkout})
-    return {"files": files, "maps": maps, "separate_checkouts": separate}
+    return {"files": files, "separate_checkouts": separate}
 
 
 def differences(old: dict, new: dict) -> dict:
@@ -162,15 +158,14 @@ def print_report(report: dict, as_json: bool) -> None:
         return
     print(f"Project: {report['root']}")
     print(f"Status: {report['status']}")
-    for group in ("files", "maps"):
-        print(f"{group}: {report['counts'][group]} monitored")
-        for kind, paths in report["changes"][group].items():
-            if paths:
-                print(f"  {kind}: {len(paths)}")
-                for name in paths[:40]:
-                    print("    " + ascii(name))
-                if len(paths) > 40:
-                    print("    ... use --json for the complete list")
+    print(f"files: {report['counts']['files']} monitored")
+    for kind, paths in report["changes"]["files"].items():
+        if paths:
+            print(f"  {kind}: {len(paths)}")
+            for name in paths[:40]:
+                print("    " + ascii(name))
+            if len(paths) > 40:
+                print("    ... use --json for the complete list")
     if report["scope_changed"]:
         print("Scope changed; review exclusions before recording")
     if report["separate_checkouts"]:
@@ -208,8 +203,7 @@ def main() -> int:
             (old or {}).get("include_generated", False)
         )
         current = inventory(root, patterns, include_generated)
-        changes = {group: differences((old or {}).get(group, {}), current[group])
-                   for group in ("files", "maps")}
+        changes = {"files": differences((old or {}).get("files", {}), current["files"])}
         scope_changed = old is not None and (
             patterns != old["excludes"] or include_generated != old["include_generated"]
         )
@@ -228,7 +222,7 @@ def main() -> int:
             status = "recorded-reviewed-state"
         print_report({
             "root": str(root), "status": status, "scope_changed": scope_changed,
-            "counts": {group: len(current[group]) for group in ("files", "maps")},
+            "counts": {"files": len(current["files"])},
             "changes": changes, "separate_checkouts": current["separate_checkouts"],
             "excludes": patterns, "include_generated": include_generated,
         }, args.json)

@@ -13,8 +13,6 @@ ELF，核心入口不依赖 libc；部分包管理和 Registry 写入流程仍�
 - 先查看 `git status --short`，保留已有改动；用 `rg` 定位任务涉及的入口，再读取相关文件。
 - 模型和协议约束查看 `spec/`，设计背景查看 `docs/ARCHITECTURE.md` 和相关 MVP 文档。
   当前已实现的行为以源码、`Makefile` 和 smoke scripts 为准，部分早期 README 描述的是旧阶段。
-- 若任务目录已有 `CODEMAP.md`，先读其 Task Guide；没有地图时按下面的入口定位，
-  无需为普通修改先生成全仓库地图。
 
 | 修改内容 | 主要入口 |
 | --- | --- |
@@ -55,6 +53,9 @@ ELF，核心入口不依赖 libc；部分包管理和 Registry 写入流程仍�
   不直接编辑 `build/generated/cli_registry.inc` 或复制到 `build/` 的 helpers。
 - 改公开命令、模型、协议或文件布局时，同步受影响的 `spec/`、`docs/`、示例、
   构建依赖和行为测试。Registry 页面与 `site/` Pages 是两个入口，按任务分别检查。
+- 每次代码变更评估任务范围内的增、删、改；替代实现已验证且消费者已迁移时，
+  同步退役旧实现及其专属测试、依赖、构建入口和文档。保留的兼容层要有具体消费者
+  或当前契约及可检查的移除条件，不能仅凭文件年龄或无本地文本引用删除。
 - 汇编内核改动要同时核对 `asm.toml`、`variants.toml`、exports、语义和 conformance；
   `examples/simd-dot/` 的文件变化会改变打包 Artifact 身份。
 
@@ -93,8 +94,7 @@ make cli-smoke
 
 | Skill | 何时使用 |
 | --- | --- |
-| `codemap` | 用户要求建立 / 更新 `CODEMAP.md`，或维护已有导航地图 |
-| `project-maintenance` | 功能、接口或汇编迁移后同步地图、文档、构建和测试，退役已替代实现 |
+| `project-maintenance` | 功能、接口或汇编迁移后评估增删改，同步文档、构建和测试，核对旧实现退役条件 |
 | `debugging` | 崩溃、错误结果、内存问题或偶发失败的排查 |
 | `profiling` | 测量瓶颈、CPU / 内存 / I/O 占用，选择分析工具 |
 | `performance-gradient-optimization` | 定义性能目标、比较候选与基线、决定是否接受优化 |
@@ -104,6 +104,5 @@ make cli-smoke
 | `git-cli` | 用户请求提交、分支、合并、冲突解决或历史恢复 |
 | `writing-for-readers` | 编写注释、README、提交信息或 PR 描述，记录已有依据支持的动机 |
 
-CODEMAP 默认使用 Maintenance 模式、内置排除规则加 `.gitignore`；并行智能体仅在用户
-明确要求时启用。skill 中的示例命令和其他项目场景按本项目契约选择，不自动安装新框架、
+并行智能体仅在用户明确要求时启用。skill 中的示例命令和其他项目场景按本项目契约选择，不自动安装新框架、
 接入 CI 或扩大任务范围。完成授权范围内的工作；已明确的需求与决定无需重复询问。
